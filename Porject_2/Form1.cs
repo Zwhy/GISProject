@@ -13,7 +13,7 @@ namespace Project_2
 {
     public partial class Form1 : Form
     {
-        List<GISPoint> points = new List<GISPoint>();
+        List<GISFeature> features = new List<GISFeature>();
         public Form1()
         {            
             InitializeComponent();
@@ -21,15 +21,21 @@ namespace Project_2
 
         private void button1_Click(object sender, EventArgs e)
         {
+            //获取空间信息
             double x = Convert.ToDouble(textBox1.Text);
             double y = Convert.ToDouble(textBox2.Text);
-            string attribute = textBox3.Text;
             GISVertex oneVertex = new GISVertex(x, y);
-            GISPoint onePoint = new GISPoint(oneVertex, attribute);
+            GISPoint onePoint = new GISPoint(oneVertex);
+            //获取属性信息
+            string attribute = textBox3.Text;
+            GISAttribute oneAttribute = new GISAttribute();
+            oneAttribute.AddValue(attribute);
+            //新建一个GISFeature，并添加到数组“features”中
+            GISFeature oneFeature = new GISFeature(onePoint, oneAttribute);
+            features.Add(oneFeature);
+            //把新的GISFeature画出来
             Graphics graphics = this.CreateGraphics();
-            onePoint.DrawPoint(graphics);
-            onePoint.DrawAttribute(graphics);
-            points.Add(onePoint);
+            oneFeature.Draw(graphics, true, 0);
         }
         /*
          * 鼠标点击出现点属性
@@ -39,9 +45,10 @@ namespace Project_2
             GISVertex oneVertex = new GISVertex((double)e.X, (double)e.Y);
             double minDistance = Double.MaxValue;
             int findId = -1;
-            for (int i = 0; i < points.Count; i++)
+            //计算点击位置与features数组中的哪个元素的中心点最近
+            for (int i = 0; i < features.Count; i++)
             {
-                double distance = points[i].Distance(oneVertex);
+                double distance = features[i].spatialPart.centroId.Distance(oneVertex);
                 if (distance < minDistance)
                 {
                     minDistance = distance;
@@ -54,7 +61,7 @@ namespace Project_2
             }
             else
             {
-                MessageBox.Show(points[findId].Attribute);
+                MessageBox.Show(features[findId].GetAttribute(0).ToString());
             }
         }
     }
