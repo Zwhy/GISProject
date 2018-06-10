@@ -25,6 +25,11 @@ namespace MyGIS
             return System.Math.Sqrt((x - anotherVertex.x) * (x - anotherVertex.x)
                 + (y - anotherVertex.y) * (y - anotherVertex.y));
         }
+        public void CopyFrom(GISVertex v)
+        {
+            x = v.x;
+            y = v.y;           
+        }
     }
     /*
      * 实体点
@@ -140,6 +145,11 @@ namespace MyGIS
             upRight = new GISVertex(Math.Max(x1, x2), Math.Max(y1, y2));
             bottomLeft = new GISVertex(Math.Min(x1, x2), Math.Min(y1, y2));
         }
+        public void CopyFrom(GISExtent extent)
+        {
+            upRight.CopyFrom(extent.upRight);
+            bottomLeft.CopyFrom(extent.bottomLeft);
+        }
         //修改地图显示范围
         public void ChangeExtent(GISMapActions action)
         {
@@ -254,6 +264,11 @@ namespace MyGIS
         public void ChangeView(GISMapActions action)
         {
             CurrentMapExent.ChangeExtent(action);
+            Update(CurrentMapExent, MapWindowSize);
+        }
+        public void UpdateExtent(GISExtent extent)
+        {
+            CurrentMapExent.CopyFrom(extent);
             Update(CurrentMapExent, MapWindowSize);
         }
 
