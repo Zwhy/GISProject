@@ -23,10 +23,17 @@ namespace GISProject
         //添加本地shp文件
         private void button1_Click(object sender, EventArgs e)
         {
-            GISShapefile sf = new GISShapefile();
-            layer = sf.ReadShapefile(@"D:\data\Burglaries_2009.shp");
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Filter = "Shapefile 文件|*.shp";
+            openFileDialog.RestoreDirectory = false;
+            openFileDialog.FilterIndex = 1;
+            openFileDialog.Multiselect = false;
+            if (openFileDialog.ShowDialog() != DialogResult.OK) return;
+            layer = GISShapefile.ReadShapefile(openFileDialog.FileName);
             layer.DrawAttributeOrNot = false;
-            MessageBox.Show("read " + layer.FeatureCount() + "point objects.");
+            MessageBox.Show("read " + layer.FeatureCount() + " objects.");
+            view.UpdateExtent(layer.Extent);
+            UpdateMap();
         }
         //显示全图
         private void button2_Click(object sender, EventArgs e)

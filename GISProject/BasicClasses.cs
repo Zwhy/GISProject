@@ -57,10 +57,31 @@ namespace MyGIS
      */
     class GISLine : GISSpatial
     {
-        List<GISVertex> AllVertexs;
+        List<GISVertex> Vertexs;
+        public double Length;
+
+        public GISLine(List<GISVertex> vertexs)
+        {
+            Vertexs = vertexs;
+            centroId = GISTools.CalculateCentroid(vertexs);
+            extent = GISTools.CalculateExtent(vertexs);
+            Length = GISTools.CalculateLength(vertexs);
+        }
+
         public override void Draw(Graphics graphics, GISView view)
         {
-            throw new System.NotImplementedException();
+            Point[] points = GISTools.GetScreenPoints(Vertexs, view);
+            graphics.DrawLines(new Pen(Color.Red, 2), points);
+        }
+        //线的起始点
+        public GISVertex FromNode()
+        {
+            return Vertexs[0];
+        }
+        //线的终止点
+        public GISVertex ToNode()
+        {
+            return Vertexs[Vertexs.Count - 1];
         }
     }
     /**
@@ -68,10 +89,23 @@ namespace MyGIS
      */
     class GISPolygon : GISSpatial
     {
-        List<GISVertex> AllVertexs;
+        List<GISVertex> Vertexs;
+        public double Area;
+
+        public GISPolygon(List<GISVertex> vertexs)
+        {
+            Vertexs = vertexs;
+            centroId = GISTools.CalculateCentroid(vertexs);
+            extent = GISTools.CalculateExtent(vertexs);
+            Area = GISTools.CalculateArea(vertexs);
+        }
+
         public override void Draw(Graphics graphics, GISView view)
         {
-            throw new System.NotImplementedException();
+            Point[] points = GISTools.GetScreenPoints(Vertexs, view);
+            graphics.FillPolygon(new SolidBrush(Color.Yellow), points);
+            graphics.DrawPolygon(new Pen(Color.White, 2), points);
+
         }
     }
 
@@ -292,7 +326,7 @@ namespace MyGIS
             public double Ymax;
             public double Unused9, Unused10, Unused11, Unused12;
         };
-        ShapefileHeader ReadFileHeader(BinaryReader br)
+        static ShapefileHeader ReadFileHeader(BinaryReader br)
         {
             byte[] buff = br.ReadBytes(Marshal.SizeOf(typeof(ShapefileHeader)));
             GCHandle handle = GCHandle.Alloc(buff, GCHandleType.Pinned);
@@ -300,7 +334,7 @@ namespace MyGIS
             handle.Free();
             return header;
         }
-        public GISLayer ReadShapefile(string shapefilename)
+        public static GISLayer ReadShapefile(string shapefilename)
         {
             FileStream fsr = new FileStream(shapefilename, FileMode.Open);//打开shp磁盘文件
             BinaryReader br = new BinaryReader(fsr);//
@@ -319,13 +353,31 @@ namespace MyGIS
                     GISFeature onefeature = new GISFeature(onepoint, new GISAttribute());
                     layer.AddFeature(onefeature);
                 }
+                if(ShapeType == SHAPETYPE.line)
+                {
+                    List<GISLine> lines = ReadLines(RecordContent);
+                    for(int i = 0; i < lines.Count; i++)
+                    {
+                        GISFeature onefeature = new GISFeature(lines[i], new GISAttribute());
+                        layer.AddFeature(onefeature);
+                    }
+                }
+                if (ShapeType == SHAPETYPE.polygon)
+                {
+                    List<GISPolygon> polygons = ReadPolygons(RecordContent);
+                    for(int i = 0; i < polygons.Count; i++)
+                    {
+                        GISFeature onefeature = new GISFeature(polygons[i], new GISAttribute());
+                        layer.AddFeature(onefeature);
+                    }
+                }
             }
             br.Close();
             fsr.Close();
             return layer;
         }
         //读取shp中一个点实体记录
-        GISPoint ReadPoint(byte[] RecordContent)
+        static GISPoint ReadPoint(byte[] RecordContent)
         {
             double x = BitConverter.ToDouble(RecordContent, 0);
             double y = BitConverter.ToDouble(RecordContent, 8);
@@ -339,7 +391,7 @@ namespace MyGIS
             public int ShapeType;
         }
         //读取记录头
-        RecordHeader ReadRecordHeader(BinaryReader br)
+        static RecordHeader ReadRecordHeader(BinaryReader br)
         {
             byte[] buff = br.ReadBytes(Marshal.SizeOf(typeof(RecordHeader)));
             GCHandle handle = GCHandle.Alloc(buff, GCHandleType.Pinned);
@@ -348,7 +400,7 @@ namespace MyGIS
             return header;
         }
         //通用Big Integer 转 Little Integer
-        int FromBigToLittle(int bigValue)
+        static int FromBigToLittle(int bigValue)
         {
             byte[] bigbytes = new byte[4];
             GCHandle handle = GCHandle.Alloc(bigbytes, GCHandleType.Pinned);
@@ -362,6 +414,57 @@ namespace MyGIS
             bigbytes[1] = b2;
             bigbytes[0] = b3;
             return BitConverter.ToInt32(bigbytes, 0);
+        }
+        //读取线实体
+        static List<GISLine> ReadLines(byte[] RecordContent)
+        {
+            int N = BitConverter.ToInt32(RecordContent, 32);
+            int M = BitConverter.ToInt32(RecordContent, 36);
+            int[] parts = new int[N + 1];
+
+            for (int i = 0; i < N; i++)
+            {
+                parts[i] = BitConverter.ToInt32(RecordContent, 40 + i * 4);
+            }
+            parts[N] = M;
+            List<GISLine> lines = new List<GISLine>();
+            for (int i = 0; i < N; i++)
+            {
+                List<GISVertex> vertexes = new List<GISVertex>();
+                for (int j = parts[i]; j < parts[i+1]; j++)
+                {
+                    double x = BitConverter.ToDouble(RecordContent, 40 + N * 4 + j * 16);
+                    double y = BitConverter.ToDouble(RecordContent, 40 + N * 4 + j * 16 + 8);
+                    vertexes.Add(new GISVertex(x,y));
+                }
+                lines.Add(new GISLine(vertexes));
+            }
+            return lines;
+        }
+        //读取面实体
+        static List<GISPolygon> ReadPolygons(byte[] RecordContent)
+        {
+            int N = BitConverter.ToInt32(RecordContent, 32);
+            int M = BitConverter.ToInt32(RecordContent, 36);
+            int[] parts = new int[N + 1];
+            for(int i = 0; i < N; i++)
+            {
+                parts[i] = BitConverter.ToInt32(RecordContent, 40 + i * 4);
+            }
+            parts[N] = M;
+            List<GISPolygon> polygons = new List<GISPolygon>();
+            for(int i = 0; i < N; i++)
+            {
+                List<GISVertex> vertexes = new List<GISVertex>();
+                for(int j = parts[i]; j < parts[i + 1]; j++)
+                {
+                    double x = BitConverter.ToDouble(RecordContent, 40 + N * 4 + j * 16);
+                    double y = BitConverter.ToDouble(RecordContent, 40 + N * 4 + j * 16 + 8);
+                    vertexes.Add(new GISVertex(x, y));
+                }
+                polygons.Add(new GISPolygon(vertexes));
+            }
+            return polygons;
         }
     }
     //定义一个枚举存储shapefile常量
@@ -401,6 +504,74 @@ namespace MyGIS
         public int FeatureCount()
         {
             return Features.Count;
+        }
+    }
+    class GISTools
+    {
+        //计算中心点坐标
+        public static GISVertex CalculateCentroid(List<GISVertex> vertexes)
+        {
+            if (vertexes.Count == 0) return null;
+            double x = 0, y = 0;
+            for (int i = 0; i < vertexes.Count; i++)
+            {
+                x += vertexes[i].x;
+                y += vertexes[i].y;
+            }
+            return new GISVertex(x / vertexes.Count, y / vertexes.Count);
+        }
+        //计算extent
+        public static GISExtent CalculateExtent(List<GISVertex> vertexes)
+        {
+            if (vertexes.Count == 0) return null;
+            double minx = Double.MaxValue;
+            double miny = Double.MaxValue;
+            double maxx = Double.MaxValue; 
+            double maxy = Double.MaxValue;
+            for (int i = 0; i < vertexes.Count; i++)
+            {
+                if (vertexes[i].x < minx) minx = vertexes[i].x;
+                if (vertexes[i].x > maxx) maxx = vertexes[i].x;
+                if (vertexes[i].y < miny) miny = vertexes[i].y;
+                if (vertexes[i].y > maxy) maxy = vertexes[i].y;
+            }
+            return new GISExtent(minx, maxx, miny, maxy);
+        }
+        //计算长度
+        public static double CalculateLength(List<GISVertex> vertexes)
+        {
+            double length = 0;
+            for (int i = 0; i < vertexes.Count; i++)
+            {
+                length += vertexes[i].Distance(vertexes[i + 1]);
+            }
+            return length;
+        }
+        //计算面积
+        public static double CalculateArea(List<GISVertex> vertexes)
+        {
+            double area = 0;
+            for (int i = 0; i < vertexes.Count-1; i++)
+            {
+                area += VectorProduct(vertexes[i], vertexes[i + 1]);
+            }
+            area += VectorProduct(vertexes[vertexes.Count - 1], vertexes[0]);
+            return area / 2;
+        }
+        //计算矢量积
+        private static double VectorProduct(GISVertex v1, GISVertex v2)
+        {
+            return v1.x * v2.y - v1.y * v2.x;
+        }
+
+        internal static Point[] GetScreenPoints(List<GISVertex> vertexs, GISView view)
+        {
+            Point[] points = new Point[vertexs.Count];
+            for (int i = 0; i < points.Length; i++)
+            {
+                points[i] = view.ToScreenPoint(vertexs[i]);
+            }
+            return points;
         }
     }
 }
