@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Project_3", "Project_3\Proj
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Project_4", "Project_4\Project_4.csproj", "{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GISProject", "GISProject\GISProject.csproj", "{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
