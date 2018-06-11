@@ -61,5 +61,11 @@ namespace GISProject
             view.ChangeView(action);
             UpdateMap();
         }
+        //打开属性表
+        private void button9_Click(object sender, EventArgs e)
+        {
+            Form2 form2 = new Form2(layer);
+            form2.Show();
+        }
     }
 }

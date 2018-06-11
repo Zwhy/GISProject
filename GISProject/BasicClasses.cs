@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.OleDb;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -34,7 +36,7 @@ namespace MyGIS
     /*
      * 实体点
      */
-    class GISPoint : GISSpatial
+    public class GISPoint : GISSpatial
     {
         public GISPoint(GISVertex oneVertex)
         {
@@ -55,7 +57,7 @@ namespace MyGIS
     /*
      * 线实体
      */
-    class GISLine : GISSpatial
+    public class GISLine : GISSpatial
     {
         List<GISVertex> Vertexs;
         public double Length;
@@ -87,7 +89,7 @@ namespace MyGIS
     /**
      * 面实体
      */
-    class GISPolygon : GISSpatial
+    public class GISPolygon : GISSpatial
     {
         List<GISVertex> Vertexs;
         public double Area;
@@ -109,7 +111,7 @@ namespace MyGIS
         }
     }
 
-    class GISFeature
+    public class GISFeature
     {
         public GISSpatial spatialPart;
         public GISAttribute attributePart;
@@ -152,7 +154,7 @@ namespace MyGIS
         }
     }
 
-    abstract class GISSpatial
+    public abstract class GISSpatial
     {
         public GISVertex centroId;
         public GISExtent extent;
@@ -312,10 +314,10 @@ namespace MyGIS
         zoomin, zoomout,
         moveup, movedown, moveleft, moveright
     };
-    class GISShapefile
+    public class GISShapefile
     {
         [StructLayout(LayoutKind.Sequential, Pack = 4)]
-        struct ShapefileHeader
+        public struct ShapefileHeader
         {
             public int Unused1, Unused2, Unused3, Unused4;
             public int Unused5, Unused6, Unused7, Unused8;
@@ -341,7 +343,10 @@ namespace MyGIS
             ShapefileHeader sfh = ReadFileHeader(br);
             SHAPETYPE ShapeType = (SHAPETYPE)Enum.Parse(typeof(SHAPETYPE), sfh.ShapeType.ToString());
             GISExtent extent = new GISExtent(sfh.Xmax, sfh.Xmin, sfh.Ymax, sfh.Ymin);
-            GISLayer layer = new GISLayer(shapefilename, extent,ShapeType);
+            string dbffilenam = shapefilename.Replace(".shp", ".dbf");
+            DataTable table = ReadDBF(dbffilenam);
+            GISLayer layer = new GISLayer(shapefilename, extent,ShapeType, ReadFields(table));
+            int rowindex = 0;
             while (br.PeekChar() != -1)
             {
                 RecordHeader rh = ReadRecordHeader(br);
@@ -350,7 +355,7 @@ namespace MyGIS
                 if(ShapeType == SHAPETYPE.point)
                 {
                     GISPoint onepoint = ReadPoint(RecordContent);
-                    GISFeature onefeature = new GISFeature(onepoint, new GISAttribute());
+                    GISFeature onefeature = new GISFeature(onepoint, ReadAttribute(table, rowindex));
                     layer.AddFeature(onefeature);
                 }
                 if(ShapeType == SHAPETYPE.line)
@@ -358,7 +363,7 @@ namespace MyGIS
                     List<GISLine> lines = ReadLines(RecordContent);
                     for(int i = 0; i < lines.Count; i++)
                     {
-                        GISFeature onefeature = new GISFeature(lines[i], new GISAttribute());
+                        GISFeature onefeature = new GISFeature(lines[i], ReadAttribute(table,rowindex));
                         layer.AddFeature(onefeature);
                     }
                 }
@@ -367,31 +372,32 @@ namespace MyGIS
                     List<GISPolygon> polygons = ReadPolygons(RecordContent);
                     for(int i = 0; i < polygons.Count; i++)
                     {
-                        GISFeature onefeature = new GISFeature(polygons[i], new GISAttribute());
+                        GISFeature onefeature = new GISFeature(polygons[i], ReadAttribute(table,rowindex));
                         layer.AddFeature(onefeature);
                     }
                 }
+                rowindex++;
             }
             br.Close();
             fsr.Close();
             return layer;
         }
         //读取shp中一个点实体记录
-        static GISPoint ReadPoint(byte[] RecordContent)
+        public static GISPoint ReadPoint(byte[] RecordContent)
         {
             double x = BitConverter.ToDouble(RecordContent, 0);
             double y = BitConverter.ToDouble(RecordContent, 8);
             return new GISPoint(new GISVertex(x, y));
         }
         [StructLayout(LayoutKind.Sequential, Pack =4)]
-        struct RecordHeader
+        public struct RecordHeader
         {
             public int RecordNumber;
             public int RecordLength;
             public int ShapeType;
         }
         //读取记录头
-        static RecordHeader ReadRecordHeader(BinaryReader br)
+        public static RecordHeader ReadRecordHeader(BinaryReader br)
         {
             byte[] buff = br.ReadBytes(Marshal.SizeOf(typeof(RecordHeader)));
             GCHandle handle = GCHandle.Alloc(buff, GCHandleType.Pinned);
@@ -400,7 +406,7 @@ namespace MyGIS
             return header;
         }
         //通用Big Integer 转 Little Integer
-        static int FromBigToLittle(int bigValue)
+        public static int FromBigToLittle(int bigValue)
         {
             byte[] bigbytes = new byte[4];
             GCHandle handle = GCHandle.Alloc(bigbytes, GCHandleType.Pinned);
@@ -416,7 +422,7 @@ namespace MyGIS
             return BitConverter.ToInt32(bigbytes, 0);
         }
         //读取线实体
-        static List<GISLine> ReadLines(byte[] RecordContent)
+        public static List<GISLine> ReadLines(byte[] RecordContent)
         {
             int N = BitConverter.ToInt32(RecordContent, 32);
             int M = BitConverter.ToInt32(RecordContent, 36);
@@ -442,7 +448,7 @@ namespace MyGIS
             return lines;
         }
         //读取面实体
-        static List<GISPolygon> ReadPolygons(byte[] RecordContent)
+        public static List<GISPolygon> ReadPolygons(byte[] RecordContent)
         {
             int N = BitConverter.ToInt32(RecordContent, 32);
             int M = BitConverter.ToInt32(RecordContent, 36);
@@ -466,16 +472,54 @@ namespace MyGIS
             }
             return polygons;
         }
+        //读取dbf文件
+        public static DataTable ReadDBF(string dbfilename)
+        {
+            System.IO.FileInfo f = new FileInfo(dbfilename);
+            DataSet ds = null;
+            string constr = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" + f.DirectoryName + ";Extended Properties=DBASE III";
+            using (OleDbConnection con = new OleDbConnection(constr))
+            {
+                var sql = "select * from " + f.Name;
+                OleDbCommand cmd = new OleDbCommand(sql, con);
+                con.Open();
+                ds = new DataSet();
+                OleDbDataAdapter da = new OleDbDataAdapter(cmd);
+                da.Fill(ds);
+            }
+            return ds.Tables[0];
+        }
+        //读取GISField字段结构
+        public static List<GISField> ReadFields(DataTable table)
+        {
+            List<GISField> fields = new List<GISField>();
+            foreach(DataColumn column in table.Columns)
+            {
+                fields.Add(new GISField(column.DataType, column.ColumnName));
+            }
+            return fields;
+        }
+        //读取属性
+        public static GISAttribute ReadAttribute(DataTable table, int RowIndex)
+        {
+            GISAttribute attribute = new GISAttribute();
+            DataRow row = table.Rows[RowIndex];
+            for (int i = 0; i < table.Columns.Count; i++)
+            {
+                attribute.AddValue(row[i]);
+            }
+            return attribute;
+        }
     }
     //定义一个枚举存储shapefile常量
-    enum SHAPETYPE
+    public enum SHAPETYPE
     {
         point = 1,
         line = 3,
         polygon = 5
     };
     //图层,相同类型的空间实体的集合
-    class GISLayer
+    public class GISLayer
     {
         public string Name;//图层名称
         public GISExtent Extent;//地图范围
@@ -483,13 +527,20 @@ namespace MyGIS
         public int LabelIndex;//需要表主的属性序列号
         public SHAPETYPE ShapeType;//空间对象类型
         List<GISFeature> Features = new List<GISFeature>();//包含所有的空间对象实体
+        public List<GISField> Fields;
 
+        public GISLayer(string name, GISExtent extent, SHAPETYPE shapeType, List<GISField> fields) : this(name, extent, shapeType)
+        {
+            Fields = fields;
+        }
         public GISLayer(string name, GISExtent extent, SHAPETYPE shapeType)
         {
             Name = name;
             Extent = extent;
             ShapeType = shapeType;
+            Fields = new List<GISField>();
         }
+
         public void Draw(Graphics graphics, GISView view)
         {
             for(int i = 0; i < Features.Count; i++)
@@ -505,8 +556,12 @@ namespace MyGIS
         {
             return Features.Count;
         }
+        public GISFeature GetFeature(int i)
+        {
+            return Features[i];
+        }
     }
-    class GISTools
+    public class GISTools
     {
         //计算中心点坐标
         public static GISVertex CalculateCentroid(List<GISVertex> vertexes)
@@ -572,6 +627,18 @@ namespace MyGIS
                 points[i] = view.ToScreenPoint(vertexs[i]);
             }
             return points;
+        }
+    }
+    //属性数据字段类
+    public class GISField
+    {
+        public Type dataType;
+        public string name;
+
+        public GISField(Type dataType, string name)
+        {
+            this.dataType = dataType;
+            this.name = name;
         }
     }
 }
