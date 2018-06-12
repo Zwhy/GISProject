@@ -67,5 +67,18 @@ namespace GISProject
             Form2 form2 = new Form2(layer);
             form2.Show();
         }
+
+        private void button10_Click(object sender, EventArgs e)
+        {
+            GISMyFile.WriteFile(layer, @"D:\mygisfile.data");
+        }
+
+        private void button11_Click(object sender, EventArgs e)
+        {
+            layer = GISMyFile.ReadFile(@"D:\mygisfile.data");
+            MessageBox.Show("read " + layer.FeatureCount() + " objects.");
+            view.UpdateExtent(layer.Extent);
+            UpdateMap();
+        }
     }
 }
