@@ -85,11 +85,20 @@ namespace GISProject
         {
             if (layer == null) return;
             GISVertex v = view.ToMapVertex(new Point(e.X, e.Y));
-            GISSelect gs = new GISSelect();
-            if(gs.Select(v,layer.GetAllFeatures(),layer.ShapeType,view) == SelectResult.OK)
+            SelectResult sr = layer.Select(v, view);
+            if( sr == SelectResult.OK)
             {
-                MessageBox.Show(gs.SelectedFeature.GetAttribute(0).ToString());
+                UpdateMap();
+                toolStripStatusLabel1.Text = layer.Selection.Count.ToString();
             }
+        }
+        //清空选项
+        private void button12_Click(object sender, EventArgs e)
+        {
+            if (layer == null) return;
+            layer.ClearSelection();
+            UpdateMap();
+            toolStripStatusLabel1.Text = "0";
         }
     }
 }

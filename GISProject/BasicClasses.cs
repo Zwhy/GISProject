@@ -44,6 +44,11 @@ namespace MyGIS
             bw.Write(x);
             bw.Write(y);
         }
+
+        public bool isSame(GISVertex vertex)
+        {
+            return x == vertex.x && y == vertex.y;
+        }
     }
     /*
      * 实体点
@@ -55,11 +60,11 @@ namespace MyGIS
             centroId = oneVertex;
             extent = new GISExtent(oneVertex, oneVertex);
         }
-        public override void Draw(Graphics graphics, GISView view)
+        public override void Draw(Graphics graphics, GISView view, bool Selected)
         {
             Point screenPoint = view.ToScreenPoint(centroId);
-            graphics.FillEllipse(new SolidBrush(Color.Red),
-                new Rectangle(screenPoint.X - 3, screenPoint.Y - 3, 6, 6));
+            graphics.FillEllipse(new SolidBrush(Selected? GISConst.SelectedPointColor:GISConst.PointColor),
+                new Rectangle(screenPoint.X - GISConst.PointSize, screenPoint.Y - GISConst.PointSize, GISConst.PointSize*2, GISConst.PointSize*2));
         }
         public double Distance(GISVertex anotherVertex)
         {
@@ -92,10 +97,10 @@ namespace MyGIS
             return distance;
         }
 
-        public override void Draw(Graphics graphics, GISView view)
+        public override void Draw(Graphics graphics, GISView view, bool selected)
         {
             Point[] points = GISTools.GetScreenPoints(Vertexs, view);
-            graphics.DrawLines(new Pen(Color.Red, 2), points);
+            graphics.DrawLines(new Pen(selected? GISConst.SelectedLineColor:GISConst.LineColor, GISConst.LineWidth), points);
         }
         //线的起始点
         public GISVertex FromNode()
@@ -124,12 +129,51 @@ namespace MyGIS
             Area = GISTools.CalculateArea(vertexs);
         }
 
-        public override void Draw(Graphics graphics, GISView view)
+        public override void Draw(Graphics graphics, GISView view, bool selected)
         {
             Point[] points = GISTools.GetScreenPoints(Vertexs, view);
-            graphics.FillPolygon(new SolidBrush(Color.Yellow), points);
-            graphics.DrawPolygon(new Pen(Color.White, 2), points);
-
+            graphics.FillPolygon(new SolidBrush(selected? GISConst.SelectedPolygonFillColor: GISConst.PolygonFillColor), points);
+            graphics.DrawPolygon(new Pen(GISConst.PolygonBoundaryColor, GISConst.PolygonBoundaryWidth), points);
+        }
+        //射线法判断点面位置
+        public bool Include(GISVertex vertex)
+        {
+            int count = 0;
+            for (int i = 0; i < Vertexs.Count; i++)
+            {
+                //点与面的节点重合
+                if (Vertexs[i].isSame(vertex)) return false;
+                //由序列为i及next的两个节点构成一条线段，一般情况下next为i+1，
+                //而针对最后一条线段，i为Vertexs.Count-1,next为0；
+                int next = (i + 1) % Vertexs.Count;
+                //确定线段的坐标极值
+                double minX = Math.Min(Vertexs[i].x, Vertexs[next].x);
+                double minY = Math.Min(Vertexs[i].y, Vertexs[next].y);
+                double maxX = Math.Max(Vertexs[i].x, Vertexs[next].x);
+                double maxY = Math.Max(Vertexs[i].y, Vertexs[next].y);
+                //如果线段平行于射线
+                if(minY == maxY)
+                {
+                    //满足射线刚好与边重合且点在边上，返回false
+                    if (minY == vertex.y && vertex.x >= minX && vertex.x <= maxX) return false;
+                    //在边的延长线上或射线与线段平行无交点
+                    else continue;
+                }
+                //点在线段坐标极值之外，不可能有交点
+                if (vertex.x > maxX || vertex.y > maxY || vertex.y < minY) continue;
+                //计算交点横坐标，纵坐标无需计算，就是vertex.y
+                double X0 = Vertexs[i].x + (vertex.y - Vertexs[i].y) * (Vertexs[next].x - Vertexs[i].x) / (Vertexs[next].y - Vertexs[i].y);
+                //交点在射线反方向，按无交点计算
+                if (X0 < vertex.x) continue;
+                //交点即为vertex,且在线段上，按不包括处理
+                if (X0 == vertex.x) continue;
+                //射线穿过线段下断电，不计数
+                if (vertex.y == minY) continue;
+                //其他情况，交点数加一
+                count++;
+            }
+            //根据交点数量确定面是否包括点,奇数表示在面内，偶数表示在面外
+            return count % 2 != 0;
         }
     }
 
@@ -137,6 +181,7 @@ namespace MyGIS
     {
         public GISSpatial spatialPart;
         public GISAttribute attributePart;
+        public bool Selected = false;
 
         public GISFeature(GISSpatial spatialPart, GISAttribute attributePart)
         {
@@ -145,7 +190,7 @@ namespace MyGIS
         }
         public void Draw(Graphics graphics, GISView view, bool DrawAttributeOrNot, int index)
         {
-            spatialPart.Draw(graphics,view);
+            spatialPart.Draw(graphics, view, Selected);
             if (DrawAttributeOrNot)
                 attributePart.Draw(graphics, view, spatialPart.centroId, index);
         }
@@ -184,7 +229,7 @@ namespace MyGIS
     {
         public GISVertex centroId;
         public GISExtent extent;
-        public abstract void Draw(Graphics graphics, GISView view);
+        public abstract void Draw(Graphics graphics, GISView view, bool selected);
     }
     /*
      * GISExtent
@@ -563,6 +608,7 @@ namespace MyGIS
         public SHAPETYPE ShapeType;//空间对象类型
         List<GISFeature> Features = new List<GISFeature>();//包含所有的空间对象实体
         public List<GISField> Fields;
+        public List<GISFeature> Selection = new List<GISFeature>();
 
         public GISLayer(string name, GISExtent extent, SHAPETYPE shapeType, List<GISField> fields) : this(name, extent, shapeType)
         {
@@ -574,6 +620,44 @@ namespace MyGIS
             Extent = extent;
             ShapeType = shapeType;
             Fields = new List<GISField>();
+        }
+        //对象选择操作
+        public SelectResult Select(GISVertex vertex, GISView view)
+        {
+            GISSelect gs = new GISSelect();
+            SelectResult sr = gs.Select(vertex, Features, ShapeType, view);
+            if(sr == SelectResult.OK)
+            {
+                if(ShapeType == SHAPETYPE.polygon)
+                {
+                    for (int i = 0; i < gs.SelectedFeatures.Count; i++)
+                    {
+                        if(gs.SelectedFeatures[i].Selected == false)
+                        {
+                            gs.SelectedFeatures[i].Selected = true;
+                            Selection.Add(gs.SelectedFeatures[i]);
+                        }
+                    }
+                }
+                else
+                {
+                    if(gs.SelectedFeature.Selected == false)
+                    {
+                        gs.SelectedFeature.Selected = true;
+                        Selection.Add(gs.SelectedFeature);
+                    }
+                }
+            }
+            return sr;
+        }
+
+        public void ClearSelection()
+        {
+            for (int i = 0; i < Selection.Count; i++)
+            {
+                Selection[i].Selected = false;
+            }
+            Selection.Clear();
         }
 
         public void Draw(Graphics graphics, GISView view)
@@ -1001,7 +1085,8 @@ namespace MyGIS
     //点选的选择过程
     public class GISSelect
     {
-        public GISFeature SelectedFeature = null;
+        public GISFeature SelectedFeature = null;//存储点和线的选择结果
+        public List<GISFeature> SelectedFeatures = new List<GISFeature>();//存储面的选择结果
         public SelectResult Select(GISVertex vertex, List<GISFeature> features, SHAPETYPE shapetype, GISView view)
         {
             if (features.Count == 0) return SelectResult.EmptySet;
@@ -1020,7 +1105,15 @@ namespace MyGIS
         //点选面实体
         private SelectResult SelectPolygon(GISVertex vertex, List<GISFeature> features, GISView view, GISExtent minSelectExtent)
         {
-            return SelectResult.TooFar;
+            SelectedFeatures.Clear();
+            for (int i = 0; i < features.Count; i++)
+            {
+                if (minSelectExtent.InsertectOrNot(features[i].spatialPart.extent) == false) continue;
+                GISPolygon polygon = (GISPolygon)(features[i].spatialPart);
+                if (polygon.Include(vertex))
+                    SelectedFeatures.Add(features[i]);
+            }
+            return (SelectedFeatures.Count > 0) ? SelectResult.OK : SelectResult.TooFar;
         }
 
         //点选线实体
@@ -1109,5 +1202,21 @@ namespace MyGIS
     public class GISConst
     {
         public static double MinScreenDistance = 5;
+        //点的颜色和半径
+        public static Color PointColor = Color.Pink;
+        public static int PointSize = 3;
+        //线的颜色和宽度
+        public static Color LineColor = Color.CadetBlue;
+        public static int LineWidth = 2;
+        //面的边框颜色、填充颜色及边框宽度
+        public static Color PolygonBoundaryColor = Color.White;
+        public static Color PolygonFillColor = Color.Gray;
+        public static int PolygonBoundaryWidth = 2;
+        //被选中点的颜色
+        public static Color SelectedPointColor = Color.Red;
+        //被选中线的颜色
+        public static Color SelectedLineColor = Color.Blue;
+        //被选中面的填充颜色
+        public static Color SelectedPolygonFillColor = Color.Yellow;
     }
 }
