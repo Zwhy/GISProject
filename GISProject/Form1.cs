@@ -80,5 +80,16 @@ namespace GISProject
             view.UpdateExtent(layer.Extent);
             UpdateMap();
         }
+
+        private void Form1_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (layer == null) return;
+            GISVertex v = view.ToMapVertex(new Point(e.X, e.Y));
+            GISSelect gs = new GISSelect();
+            if(gs.Select(v,layer.GetAllFeatures(),layer.ShapeType,view) == SelectResult.OK)
+            {
+                MessageBox.Show(gs.SelectedFeature.GetAttribute(0).ToString());
+            }
+        }
     }
 }

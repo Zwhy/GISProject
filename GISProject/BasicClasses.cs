@@ -81,6 +81,16 @@ namespace MyGIS
             extent = GISTools.CalculateExtent(vertexs);
             Length = GISTools.CalculateLength(vertexs);
         }
+        //点到线距离,逐个计算点到线段的距离，直到找到最短的那个距离
+        public double Distance(GISVertex vertex)
+        {
+            double distance = double.MaxValue;
+            for (int i = 0; i < Vertexs.Count; i++)
+            {
+                distance = Math.Min(GISTools.PointToSegment(Vertexs[i], Vertexs[i + 1], vertex), distance);
+            }
+            return distance;
+        }
 
         public override void Draw(Graphics graphics, GISView view)
         {
@@ -243,6 +253,12 @@ namespace MyGIS
             bottomLeft.x = newminx;
             bottomLeft.y = newminy;
         }
+        //判断MinSelectExtent与当前空间对象是否相交,排除所有不相交的可能，剩下就是必然相交
+        public bool InsertectOrNot(GISExtent extent)
+        {
+            return !(GetMaxX() < extent.GetMinX() || GetMinX() > extent.GetMaxX()
+                || GetMaxY() < extent.GetMinY() || GetMinY() > extent.GetMaxY());
+        }
 
         public double GetMinX()
         {
@@ -322,6 +338,17 @@ namespace MyGIS
         {
             CurrentMapExent.CopyFrom(extent);
             Update(CurrentMapExent, MapWindowSize);
+        }
+        //计算屏幕距离
+        public double ToScreenDistance(GISVertex v1, GISVertex v2)
+        {
+            Point p1 = ToScreenPoint(v1);
+            Point p2 = ToScreenPoint(v2);
+            return Math.Sqrt((double)((p1.X - p2.X) * (p1.X - p2.X) + (p1.Y - p2.Y) * (p1.Y - p2.Y)));
+        }
+        public double ToScreenDistance(double distance)
+        {
+            return ToScreenDistance(new GISVertex(0, 0), new GISVertex(0, distance));
         }
 
     }
@@ -568,9 +595,39 @@ namespace MyGIS
         {
             return Features[i];
         }
+
+        internal List<GISFeature> GetAllFeatures()
+        {
+            return Features;
+        }
     }
     public class GISTools
     {
+        //计算点到线的最短
+        public static double PointToSegment(GISVertex a, GISVertex b, GISVertex c)
+        {
+            double dot1 = Dot3Product(a, b, c);
+            if (dot1 > 0) return b.Distance(c);
+            double dot2 = Dot3Product(b, a, c);
+            if (dot2 > 0) return a.Distance(c);
+            double dist = Cross3Product(a, b, c) / a.Distance(b);
+            return Math.Abs(dist);
+        }
+
+        private static double Cross3Product(GISVertex a, GISVertex b, GISVertex c)
+        {
+            GISVertex AB = new GISVertex(b.x - a.x, b.y - a.y);
+            GISVertex AC = new GISVertex(c.x - a.x, c.y - a.y);
+            return VectorProduct(AB, AC);
+        }
+
+        private static double Dot3Product(GISVertex a, GISVertex b, GISVertex c)
+        {
+            GISVertex AB = new GISVertex(b.x - a.x, b.y - a.y);
+            GISVertex BC = new GISVertex(c.x - b.x, c.y - b.y);
+            return AB.x * BC.x + AB.y * BC.y;
+        }
+
         //计算中心点坐标
         public static GISVertex CalculateCentroid(List<GISVertex> vertexes)
         {
@@ -929,4 +986,128 @@ namespace MyGIS
         System_UInt64,
         System_UInt16
     };
+    //点选结果
+    public enum SelectResult
+    {
+        //正常选择状态：选择到一个结果
+        OK,
+        //错误选择状态：备选集为空
+        EmptySet,
+        //错误选择状态：点击选择时距离空间对象太远
+        TooFar,
+        //错误选择状态：未知空间对象
+        UnknownType
+    };
+    //点选的选择过程
+    public class GISSelect
+    {
+        public GISFeature SelectedFeature = null;
+        public SelectResult Select(GISVertex vertex, List<GISFeature> features, SHAPETYPE shapetype, GISView view)
+        {
+            if (features.Count == 0) return SelectResult.EmptySet;
+            GISExtent MinSelectExtent = BuildExtent(vertex, view);
+            switch (shapetype)
+            {
+                case SHAPETYPE.point:
+                    return SelectPoint(vertex, features, view, MinSelectExtent);
+                case SHAPETYPE.line:
+                    return SelectLine(vertex, features, view, MinSelectExtent);
+                case SHAPETYPE.polygon:
+                    return SelectPolygon(vertex, features, view, MinSelectExtent);
+            }
+            return SelectResult.UnknownType;
+        }
+        //点选面实体
+        private SelectResult SelectPolygon(GISVertex vertex, List<GISFeature> features, GISView view, GISExtent minSelectExtent)
+        {
+            return SelectResult.TooFar;
+        }
+
+        //点选线实体
+        private SelectResult SelectLine(GISVertex vertex, List<GISFeature> features, GISView view, GISExtent minSelectExtent)
+        {
+            Double distance = Double.MaxValue;
+            int id = -1;
+            for(int i = 0; i < features.Count; i++)
+            {
+                if (minSelectExtent.InsertectOrNot(features[i].spatialPart.extent) == false) continue;
+                GISLine line = (GISLine)(features[i].spatialPart);
+                double dist = line.Distance(vertex);
+                if(dist < distance)
+                {
+                    distance = dist;
+                    id = i;
+                }
+            }
+            if(id == -1)
+            {
+                SelectedFeature = null;
+                return SelectResult.TooFar;
+            }
+            else
+            {
+                double screendistance = view.ToScreenDistance(distance);
+                if (screendistance <= GISConst.MinScreenDistance)
+                {
+                    SelectedFeature = features[id];
+                    return SelectResult.OK;
+                }
+                else
+                {
+                    SelectedFeature = null;
+                    return SelectResult.TooFar;
+                }
+            }
+        }
+
+        public GISExtent BuildExtent(GISVertex vertex, GISView view)
+        {
+            Point p0 = view.ToScreenPoint(vertex);
+            Point p1 = new Point(p0.X + (int)GISConst.MinScreenDistance, p0.Y + (int)GISConst.MinScreenDistance);
+            Point p2 = new Point(p0.X - (int)GISConst.MinScreenDistance, p0.Y - (int)GISConst.MinScreenDistance);
+            GISVertex gp1 = view.ToMapVertex(p1);
+            GISVertex gp2 = view.ToMapVertex(p2);
+            return new GISExtent(gp1.x, gp2.x, gp1.y, gp2.y);
+        }
+        //选择点
+        public SelectResult SelectPoint(GISVertex vertex, List<GISFeature> features, GISView view,GISExtent MinSelectExtent)
+        {
+            double distance = Double.MaxValue;
+            int id = -1;
+            for (int i = 0; i < features.Count; i++)
+            {
+                if (MinSelectExtent.InsertectOrNot(features[i].spatialPart.extent) == false) continue;
+                GISPoint point = (GISPoint)(features[i].spatialPart);
+                double dist = point.Distance(vertex);
+                if(dist<distance)
+                {
+                    distance = dist;
+                    id = i;
+                }
+            }
+            if (id == -1)
+            {
+                SelectedFeature = null;
+                return SelectResult.TooFar;
+            }
+            else
+            {
+                double screendistance = view.ToScreenDistance(vertex, features[id].spatialPart.centroId);
+                if(screendistance <= GISConst.MinScreenDistance)
+                {
+                    SelectedFeature = features[id];
+                    return SelectResult.OK;
+                }
+                else
+                {
+                    SelectedFeature = null;
+                    return SelectResult.TooFar;
+                }
+            }
+        }
+    }
+    public class GISConst
+    {
+        public static double MinScreenDistance = 5;
+    }
 }
