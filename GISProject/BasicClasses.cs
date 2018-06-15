@@ -182,6 +182,7 @@ namespace MyGIS
         public GISSpatial spatialPart;
         public GISAttribute attributePart;
         public bool Selected = false;
+        public int ID;//在同一图层中把多个GISFeature区别开来，在GISLayer的AddFeature函数中进行赋值。
 
         public GISFeature(GISSpatial spatialPart, GISAttribute attributePart)
         {
@@ -346,6 +347,12 @@ namespace MyGIS
         {
             Update(currentMapExent, mapWindowSize);
         }
+        //将当前窗口的范围告诉view,让它及时更新
+        public void UpdateRectangle(Rectangle rectangle)
+        {
+            MapWindowSize = rectangle;
+            Update(CurrentMapExent, MapWindowSize);
+        }
         public void Update(GISExtent _extent, Rectangle _rectangle)
         {
             CurrentMapExent = _extent;
@@ -358,6 +365,9 @@ namespace MyGIS
             MapH = CurrentMapExent.GetHeight();
             ScaleX = MapW / WinW;
             ScaleY = MapH / WinH;
+            //令两者相等，确保显示内容完整且不变形。
+            ScaleX = Math.Max(ScaleX, ScaleY);
+            ScaleY = ScaleX;
         }
 
         //以下两个函数用于地图坐标和屏幕坐标之间的转换
@@ -669,6 +679,8 @@ namespace MyGIS
         }
         public void AddFeature(GISFeature feature)
         {
+            if (Features.Count == 0) feature.ID = 0;
+            else feature.ID = Features[Features.Count - 1].ID + 1;
             Features.Add(feature);
         }
         public int FeatureCount()
@@ -683,6 +695,21 @@ namespace MyGIS
         internal List<GISFeature> GetAllFeatures()
         {
             return Features;
+        }
+
+        internal void AddSelectedFeatByID(int id)
+        {
+            GISFeature feature = GetFeatureByID(id);
+            feature.Selected = true;
+            Selection.Add(feature);
+        }
+        public GISFeature GetFeatureByID(int id)
+        {
+            foreach (GISFeature feature in Features)
+            {
+                if (feature.ID == id) return feature;
+            }
+            return null;
         }
     }
     public class GISTools
