@@ -330,6 +330,12 @@ namespace MyGIS
         {
             return upRight.y - bottomLeft.y;
         }
+
+        public bool Include(GISExtent extent)
+        {
+            return (GetMaxX() >= extent.GetMaxX() && GetMaxY() >= extent.GetMaxY()
+                && GetMinX() <= extent.GetMinX() && GetMinY() <= extent.GetMinY());
+        }
     }
     /*
      * GISView
@@ -406,6 +412,17 @@ namespace MyGIS
             return ToScreenDistance(new GISVertex(0, 0), new GISVertex(0, distance));
         }
 
+        internal GISExtent RectToExtent(int x1, int x2, int y1, int y2)
+        {
+            GISVertex v1 = ToMapVertex(new Point(x1, y1));
+            GISVertex v2 = ToMapVertex(new Point(x2, y2));
+            return new GISExtent(v1.x, v2.x, v1.y, v2.y);
+        }
+
+        internal GISExtent GetRealExtent()
+        {
+            return new GISExtent(MapMinX, MapMinX + MapW, MapMinY, MapMinY + MapH);
+        }
     }
     public enum GISMapActions
     {
@@ -655,6 +672,23 @@ namespace MyGIS
                     {
                         gs.SelectedFeature.Selected = true;
                         Selection.Add(gs.SelectedFeature);
+                    }
+                }
+            }
+            return sr;
+        }
+        public SelectResult Select(GISExtent extent)
+        {
+            GISSelect gs = new GISSelect();
+            SelectResult sr = gs.Select(extent, Features);
+            if(sr == SelectResult.OK)
+            {
+                for (int i = 0; i < gs.SelectedFeatures.Count; i++)
+                {
+                    if(gs.SelectedFeatures[i].Selected == false)
+                    {
+                        gs.SelectedFeatures[i].Selected = true;
+                        Selection.Add(gs.SelectedFeatures[i]);
                     }
                 }
             }
@@ -1129,6 +1163,16 @@ namespace MyGIS
             }
             return SelectResult.UnknownType;
         }
+        public SelectResult Select(GISExtent extent, List<GISFeature> Features)
+        {
+            SelectedFeatures.Clear();
+            for (int i = 0; i < Features.Count; i++)
+            {
+                if (extent.Include(Features[i].spatialPart.extent))
+                    SelectedFeatures.Add(Features[i]);
+            }
+            return (SelectedFeatures.Count > 0) ? SelectResult.OK : SelectResult.TooFar;
+        }
         //点选面实体
         private SelectResult SelectPolygon(GISVertex vertex, List<GISFeature> features, GISView view, GISExtent minSelectExtent)
         {
@@ -1228,6 +1272,10 @@ namespace MyGIS
     }
     public class GISConst
     {
+        //设置鼠标缩放操作时的系数
+        public static double ZoomInFactor = 0.8;
+        public static double ZoomOutFactor = 0.8;
+
         public static double MinScreenDistance = 5;
         //点的颜色和半径
         public static Color PointColor = Color.Pink;
@@ -1245,5 +1293,13 @@ namespace MyGIS
         public static Color SelectedLineColor = Color.Blue;
         //被选中面的填充颜色
         public static Color SelectedPolygonFillColor = Color.Yellow;
+        //绘制选择或缩放范围框式的填充颜色
+        public static Color ZoomSelectBoxColor = Color.FromArgb(50, 0, 0, 0);
     }
+
+    //鼠标动作枚举:空操作，选择，放大，缩小，平移。
+    public enum MOUSECOMMAND
+    {
+        Unused, Select, ZoomIn, ZoomOut, Pan
+    };
 }
