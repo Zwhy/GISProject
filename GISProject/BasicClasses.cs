@@ -17,6 +17,7 @@ namespace MyGIS
     {
         public double x;
         public double y;
+        private GISVertex bottomLeft;
 
         public GISVertex(double _x, double _y)
         {
@@ -28,6 +29,12 @@ namespace MyGIS
             x = br.ReadDouble();
             y = br.ReadDouble();
         }
+
+        public GISVertex(GISVertex v)
+        {
+            CopyFrom(v);
+        }
+
         public double Distance(GISVertex anotherVertex)
         {
             return System.Math.Sqrt((x - anotherVertex.x) * (x - anotherVertex.x)
@@ -241,6 +248,7 @@ namespace MyGIS
         public GISVertex upRight;
         double ZoomingFactor = 2;//缩放倍数
         double MovingFactor = 0.25;//移动倍数
+        private GISExtent extent;
 
         public GISExtent(GISVertex bottomLeft, GISVertex upRight)
         {
@@ -253,6 +261,13 @@ namespace MyGIS
             upRight = new GISVertex(Math.Max(x1, x2), Math.Max(y1, y2));
             bottomLeft = new GISVertex(Math.Min(x1, x2), Math.Min(y1, y2));
         }
+
+        public GISExtent(GISExtent extent)
+        {
+            upRight = new GISVertex(extent.upRight);
+            bottomLeft = new GISVertex(extent.bottomLeft);
+        }
+
         public void CopyFrom(GISExtent extent)
         {
             upRight.CopyFrom(extent.upRight);
@@ -335,6 +350,14 @@ namespace MyGIS
         {
             return (GetMaxX() >= extent.GetMaxX() && GetMaxY() >= extent.GetMaxY()
                 && GetMinX() <= extent.GetMinX() && GetMinY() <= extent.GetMinY());
+        }
+
+        public void Merge(GISExtent extent)
+        {
+            upRight.x = Math.Max(upRight.x, extent.upRight.x);
+            upRight.y = Math.Max(upRight.y, extent.upRight.y);
+            bottomLeft.x = Math.Min(bottomLeft.x, extent.bottomLeft.x);
+            bottomLeft.y = Math.Min(bottomLeft.y, extent.bottomLeft.y);
         }
     }
     /*
@@ -631,11 +654,14 @@ namespace MyGIS
         public string Name;//图层名称
         public GISExtent Extent;//地图范围
         public bool DrawAttributeOrNot = false;//是否需要标注属性信息
-        public int LabelIndex;//需要表主的属性序列号
+        public int LabelIndex;//需要标注的属性序列号
         public SHAPETYPE ShapeType;//空间对象类型
         List<GISFeature> Features = new List<GISFeature>();//包含所有的空间对象实体
         public List<GISField> Fields;
         public List<GISFeature> Selection = new List<GISFeature>();
+        public bool Selectable = true;
+        public bool Visible = true;
+        public string Path = "";
 
         public GISLayer(string name, GISExtent extent, SHAPETYPE shapeType, List<GISField> fields) : this(name, extent, shapeType)
         {
@@ -744,6 +770,15 @@ namespace MyGIS
                 if (feature.ID == id) return feature;
             }
             return null;
+        }
+
+        internal void Draw(Graphics graphics, GISView view, GISExtent displayextent)
+        {
+            for (int i = 0; i < Features.Count; i++)
+            {
+                if (Extent.InsertectOrNot(Features[i].spatialPart.extent))
+                    Features[i].Draw(graphics, view, DrawAttributeOrNot, LabelIndex);
+            }
         }
     }
     public class GISTools
@@ -1272,6 +1307,12 @@ namespace MyGIS
     }
     public class GISConst
     {
+        //地图文档扩展名
+        public static string MYDOC = "mydoc";
+        //shapefile文件扩展名
+        public static string SHPFILE = "shp";
+        //自定义文件扩展名
+        public static string MYFILE = "gis";
         //设置鼠标缩放操作时的系数
         public static double ZoomInFactor = 0.8;
         public static double ZoomOutFactor = 0.8;
@@ -1302,4 +1343,120 @@ namespace MyGIS
     {
         Unused, Select, ZoomIn, ZoomOut, Pan
     };
+    //管理一组图层
+    public class GISDocument
+    {
+        public List<GISLayer> layers = new List<GISLayer>();
+        public GISExtent Extent;
+        public GISLayer GetLayer(string layername)
+        {
+            for (int i = 0; i < layers.Count; i++)
+            {
+                if (layers[i].Name == layername) return layers[i];
+            }
+            return null;
+        }
+        //添加图层
+        public GISLayer AddLayer(string path)
+        {
+            GISLayer layer = null;
+            string filetype = System.IO.Path.GetExtension(path).ToLower();
+            if (filetype == "." + GISConst.SHPFILE)
+                layer = GISShapefile.ReadShapefile(path);
+            else if (filetype == "." + GISConst.MYFILE)
+                layer = GISMyFile.ReadFile(path);
+            layer.Path = path;
+            GetUniqueName(layer);
+            layers.Add(layer);
+            UpdateExtent();
+            return layer;
+        }
+
+        private void UpdateExtent()
+        {
+            Extent = null;
+            if (layers.Count == 0) return;
+            Extent = new GISExtent(layers[0].Extent);
+            for (int i = 1; i < layers.Count; i++)
+                Extent.Merge(layers[i].Extent);//所有图层的地图范围合并在一起。
+        }
+
+        //使图层列表中的每个图层都有独一的名字
+        private void GetUniqueName(GISLayer layer)
+        {
+            List<string> names = new List<string>();
+            for (int i = 0; i < layers.Count; i++)
+            {
+                names.Add(layers[i].Name);
+            }
+            names.Sort();//排序后比较才不会出错。例如有layer1，layer2，layer。分别比较后，变成layer1，与已有图层重复。
+            for (int i = 0; i < names.Count; i++)
+            {
+                if (layer.Name == names[i])
+                    layer.Name = names[i] + "1";//若有layer,layer1,layer2.现有新的叫“layer”，对比后变成layer11.
+            }
+        }
+        //移除图层
+        public void RemoveLayer(string layername)
+        {
+            layers.Remove(GetLayer(layername));
+            UpdateExtent();
+        }
+        //绘图
+        public void draw(Graphics graphics, GISView view)
+        {
+            if (layers.Count == 0) return;
+            GISExtent displayextent = view.GetRealExtent();
+            for (int i = 0; i < layers.Count; i++)
+            {
+                if (layers[i].Visible)
+                    layers[i].Draw(graphics, view, displayextent);
+            }
+        }
+        //调换图层在数组中的顺序
+        internal void SwitchLayer(string seletedname, string uppername)
+        {
+            GISLayer layer1 = GetLayer(seletedname);
+            GISLayer layer2 = GetLayer(uppername);
+            int index1 = layers.IndexOf(layer1);
+            int index2 = layers.IndexOf(layer2);
+            layers[index1] = layer2;
+            layers[index2] = layer1;
+        }
+        //写入操作，存储地图文档
+        internal void Write(string fileName)
+        {
+            FileStream fs = new FileStream(fileName, FileMode.Create);
+            BinaryWriter bw = new BinaryWriter(fs);
+            for (int i = 0; i < layers.Count; i++)
+            {
+                GISTools.WriteString(layers[i].Path, bw);
+                bw.Write(layers[i].DrawAttributeOrNot);
+                bw.Write(layers[i].LabelIndex);
+                bw.Write(layers[i].Selectable);
+                bw.Write(layers[i].Visible);
+            }
+            bw.Close();
+            fs.Close();
+        }
+        //读取地图文档
+        public void Read(string filename)
+        {
+            layers.Clear();
+            FileStream fs = new FileStream(filename, FileMode.Open);
+            BinaryReader br = new BinaryReader(fs);
+            while (br.PeekChar() != -1)
+            {
+                string path = GISTools.ReadString(br);
+                GISLayer layer = AddLayer(path);
+                layer.Path = path;
+                layer.DrawAttributeOrNot = br.ReadBoolean();
+                layer.LabelIndex = br.ReadInt32();
+                layer.Selectable = br.ReadBoolean();
+                layer.Visible = br.ReadBoolean();
+            }
+            br.Close();
+            fs.Close();
+        }
+    }
 }

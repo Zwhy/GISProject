@@ -3,13 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27703.2026
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Project_3", "Project_3\Project_3.csproj", "{5445D267-0B4F-436B-BBC5-0E9A1B0E7A1D}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Project_4", "Project_4\Project_4.csproj", "{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GISProject", "GISProject\GISProject.csproj", "{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lesson_12", "C:\Users\Zwhy\Desktop\vs\Lesson_12\Lesson_12.csproj", "{4E948DA8-BFC3-4DAF-8328-144C2B4042A3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,22 +13,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{5445D267-0B4F-436B-BBC5-0E9A1B0E7A1D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5445D267-0B4F-436B-BBC5-0E9A1B0E7A1D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5445D267-0B4F-436B-BBC5-0E9A1B0E7A1D}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{5445D267-0B4F-436B-BBC5-0E9A1B0E7A1D}.Debug|x86.Build.0 = Debug|Any CPU
-		{5445D267-0B4F-436B-BBC5-0E9A1B0E7A1D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5445D267-0B4F-436B-BBC5-0E9A1B0E7A1D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5445D267-0B4F-436B-BBC5-0E9A1B0E7A1D}.Release|x86.ActiveCfg = Release|Any CPU
-		{5445D267-0B4F-436B-BBC5-0E9A1B0E7A1D}.Release|x86.Build.0 = Release|Any CPU
-		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Debug|x86.Build.0 = Debug|Any CPU
-		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Release|x86.ActiveCfg = Release|Any CPU
-		{0CBE701B-726A-4D7A-8E9A-7F83AC23C34B}.Release|x86.Build.0 = Release|Any CPU
 		{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}.Debug|x86.ActiveCfg = Debug|Any CPU
@@ -43,12 +21,6 @@ Global
 		{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}.Release|x86.ActiveCfg = Release|Any CPU
 		{D30A4EB9-DDEB-441A-9E4E-DEE8FD9FCFED}.Release|x86.Build.0 = Release|Any CPU
-		{4E948DA8-BFC3-4DAF-8328-144C2B4042A3}.Debug|Any CPU.ActiveCfg = Debug|x86
-		{4E948DA8-BFC3-4DAF-8328-144C2B4042A3}.Debug|x86.ActiveCfg = Debug|x86
-		{4E948DA8-BFC3-4DAF-8328-144C2B4042A3}.Debug|x86.Build.0 = Debug|x86
-		{4E948DA8-BFC3-4DAF-8328-144C2B4042A3}.Release|Any CPU.ActiveCfg = Release|x86
-		{4E948DA8-BFC3-4DAF-8328-144C2B4042A3}.Release|x86.ActiveCfg = Release|x86
-		{4E948DA8-BFC3-4DAF-8328-144C2B4042A3}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
