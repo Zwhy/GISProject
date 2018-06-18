@@ -1,6 +1,6 @@
-﻿namespace GISProject
+﻿namespace MyGIS
 {
-    partial class Form3
+    partial class LayerDialogForm
     {
         /// <summary>
         /// Required designer variable.

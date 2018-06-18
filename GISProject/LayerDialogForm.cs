@@ -7,16 +7,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using MyGIS;
 
-namespace GISProject
+namespace MyGIS
 {
-    public partial class Form3 : Form
+    public partial class LayerDialogForm : Form
     {
         GISDocument Document;
-        Form1 MapWindow;
+        GISPanel MapWindow;
 
-        public Form3(GISDocument document, Form1 mapwindow)
+        public LayerDialogForm(GISDocument document, GISPanel mapwindow)
         {
             InitializeComponent();
             Document = document;

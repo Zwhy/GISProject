@@ -7,16 +7,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using MyGIS;
 
-namespace GISProject
+namespace MyGIS
 {
-    public partial class Form2 : Form
+    public partial class AttributeForm : Form
     {
-        Form1 MapWindow = null;
+        GISPanel MapWindow = null;
         GISLayer Layer;
         bool FromMapWindow = true;
-        public Form2(GISLayer layer, Form1 mapWindow)
+        public AttributeForm(GISLayer layer, GISPanel mapWindow)
         {
             InitializeComponent();
             Layer = layer;

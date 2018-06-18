@@ -1,6 +1,6 @@
-﻿namespace GISProject
+﻿namespace MyGIS
 {
-    partial class Form2
+    partial class AttributeForm
     {
         /// <summary>
         /// Required designer variable.

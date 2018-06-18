@@ -1,0 +1,285 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace MyGIS
+{
+    public partial class GISPanel : UserControl
+    {
+        GISView view = null;
+        Dictionary<GISLayer, AttributeForm> AllAttWnds = new Dictionary<GISLayer, AttributeForm>();//相当于Java中的map。
+        Bitmap backwindow;
+        MOUSECOMMAND MouseCommand = MOUSECOMMAND.Unused;
+        int MouseStartX = 0;
+        int MouseStartY = 0;
+        int MouseMovingX = 0;
+        int MouseMovingY = 0;
+        bool MouseOnMap = false;//确保鼠标的按下、移动、松开这三个一系列动作是在同一个窗口下完成。
+
+        GISDocument document = new GISDocument();
+
+        public GISPanel()
+        {
+            InitializeComponent();
+            DoubleBuffered = true;
+        }
+
+        public void UpdateMap()
+        {
+            if (view == null)
+            {
+                if (document.IsEmpty()) return;
+                view = new GISView(new GISExtent(document.Extent), ClientRectangle);
+            }
+            //如果地图窗口被最小化了，就不用绘制了
+            if (ClientRectangle.Width * ClientRectangle.Height == 0) return;
+            //确保当前view的地图窗口尺寸是正确的
+            view.UpdateRectangle(ClientRectangle);
+            //根据最新的地图窗口尺寸建立背景窗口
+            if (backwindow != null) backwindow.Dispose();
+            backwindow = new Bitmap(ClientRectangle.Width, ClientRectangle.Height);
+            //在背景窗口上绘图
+            Graphics g = Graphics.FromImage(backwindow);
+            g.FillRectangle(new SolidBrush(Color.Black), ClientRectangle);
+            document.Draw(g, view);
+            //把背景窗口绘制到前景窗口上
+            Graphics graphics = CreateGraphics();
+            graphics.DrawImage(backwindow, 0, 0);
+        }
+
+        public void OpenAttributeWindow(GISLayer layer)
+        {
+            AttributeForm AttributeWindow = null;
+            //如果属性窗口已经存在了，就找到它并移除记录，稍后统一添加。
+            if (AllAttWnds.ContainsKey(layer))
+            {
+                AttributeWindow = AllAttWnds[layer];
+                AllAttWnds.Remove(layer);
+            }
+            //初始化属性窗口
+            if (AttributeWindow == null)
+                AttributeWindow = new AttributeForm(layer, this);
+            if (AttributeWindow.IsDisposed)
+                AttributeWindow = new AttributeForm(layer, this);
+            //添加属性窗口与图层的关联记录
+            AllAttWnds.Add(layer, AttributeWindow);
+            //显示属性窗口
+            AttributeWindow.Show();
+            if (AttributeWindow.WindowState == FormWindowState.Minimized)
+                AttributeWindow.WindowState = FormWindowState.Normal;
+            AttributeWindow.BringToFront();
+        }
+
+        private void UpdateAttributeWindow()
+        {
+            //如果文档为空，则返回
+            if (document.IsEmpty()) return;
+            foreach (AttributeForm AttributeWindow in AllAttWnds.Values)
+            {
+                //如果属性窗口已经关闭，则继续
+                if (AttributeWindow == null) continue;
+                //如果属性窗口资源已释放，也继续
+                if (AttributeWindow.IsDisposed) continue;
+                //更新数据
+                AttributeWindow.UpdateData();
+            }
+        }
+
+        private void GISPanel_Paint(object sender, PaintEventArgs e)
+        {
+            if (backwindow != null)
+            {
+                if (MouseOnMap)
+                {
+                    //如果由移动地图造成，就移动背景图片
+                    if (MouseCommand == MOUSECOMMAND.Pan)
+                    {
+                        e.Graphics.DrawImage(backwindow, MouseMovingX - MouseStartX, MouseMovingY - MouseStartY);
+                    }
+                    //由选择或者缩放造成的，就画一个框
+                    else if (MouseCommand != MOUSECOMMAND.Unused)
+                    {
+                        e.Graphics.DrawImage(backwindow, 0, 0);
+                        e.Graphics.FillRectangle(new SolidBrush(GISConst.ZoomSelectBoxColor),
+                            new Rectangle(
+                                Math.Min(MouseStartX, MouseMovingX),
+                                Math.Min(MouseStartY, MouseMovingY),
+                                Math.Abs(MouseStartX - MouseMovingX),
+                                Math.Abs(MouseStartY - MouseMovingY)));
+                    }
+                }
+                //如果不是鼠标引起的，就直接复制背景窗口
+                else
+                    e.Graphics.DrawImage(backwindow, 0, 0);
+            }
+        }
+
+        private void GISPanel_SizeChanged(object sender, EventArgs e)
+        {
+            //UpdateMap();
+        }
+
+        private void GISPanel_MouseDown(object sender, MouseEventArgs e)
+        {
+            MouseStartX = e.X;
+            MouseStartY = e.Y;
+            MouseOnMap = (e.Button == MouseButtons.Left && MouseCommand != MOUSECOMMAND.Unused);
+        }
+
+        private void GISPanel_MouseMove(object sender, MouseEventArgs e)
+        {
+            MouseMovingX = e.X;
+            MouseMovingY = e.Y;
+            if (MouseOnMap)
+                Invalidate();
+        }
+
+        private void GISPanel_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (document.IsEmpty()) return;
+            if (MouseOnMap == false) return;
+            MouseOnMap = false;
+            switch (MouseCommand)
+            {
+                case MOUSECOMMAND.Select:
+                    //如果ctrl键没有被按住，就清空选择集
+                    if (Control.ModifierKeys != Keys.Control)
+                        document.ClearSelection();
+                    //初始化选择结果
+                    SelectResult sr = SelectResult.UnknownType;
+                    if (e.X == MouseStartX && e.Y == MouseStartY)
+                    {
+                        //点选
+                        GISVertex v = view.ToMapVertex(new Point(e.X, e.Y));
+                        sr = document.Select(v, view);
+                    }
+                    else
+                    {
+                        //框选
+                        GISExtent extent = view.RectToExtent(e.X, MouseStartX, e.Y, MouseStartY);
+                        sr = document.Select(extent);
+                    }
+                    //仅党选择集最可能发生改变时，才更新地图和属性窗口
+                    if (sr == SelectResult.OK || Control.ModifierKeys != Keys.Control)
+                    {
+                        UpdateMap();
+                        UpdateAttributeWindow();
+                    }
+                    break;
+                case MOUSECOMMAND.ZoomIn:
+                    if (e.X == MouseStartX && e.Y == MouseStartY)
+                    {
+                        //单点放大
+                        GISVertex MouseLocation = view.ToMapVertex(new Point(e.X, e.Y));//鼠标点击位置
+                        GISExtent E1 = view.GetRealExtent();
+                        double newwidth = E1.GetWidth() * GISConst.ZoomInFactor;
+                        double newheight = E1.GetHeight() * GISConst.ZoomInFactor;
+                        double newminx = MouseLocation.x - (MouseLocation.x - E1.GetMinX()) * GISConst.ZoomInFactor;
+                        double newminy = MouseLocation.y - (MouseLocation.y - E1.GetMinY()) * GISConst.ZoomInFactor;
+                        view.UpdateExtent(new GISExtent(newminx, newminx + newwidth, newminy, newminy + newheight));
+                    }
+                    else
+                    {
+                        //拉框放大
+                        view.UpdateExtent(view.RectToExtent(e.X, MouseStartX, e.Y, MouseStartY));
+                    }
+                    UpdateMap();
+                    break;
+                case MOUSECOMMAND.ZoomOut:
+                    if (e.X == MouseStartX && e.Y == MouseStartY)
+                    {
+                        //单点缩小
+                        GISExtent E1 = view.GetRealExtent();//当前地图范围
+                        GISVertex MouseLocation = view.ToMapVertex(new Point(e.X, e.Y));
+                        double newwidth = E1.GetWidth() / GISConst.ZoomOutFactor;
+                        double newheight = E1.GetHeight() / GISConst.ZoomOutFactor;
+                        double newminx = MouseLocation.x - (MouseLocation.x - E1.GetMinX()) / GISConst.ZoomOutFactor;
+                        double newminy = MouseLocation.y - (MouseLocation.y - E1.GetMinY()) / GISConst.ZoomOutFactor;
+                        view.UpdateExtent(new GISExtent(newminx, newminx + newwidth, newminy, newminy + newheight));
+                    }
+                    else
+                    {
+                        //拉框缩小
+                        GISExtent E3 = view.RectToExtent(e.X, MouseStartX, e.Y, MouseStartY);//拉框范围
+                        GISExtent E1 = view.GetRealExtent();
+                        double newwidth = E1.GetWidth() * E1.GetWidth() / E3.GetWidth();
+                        double newheight = E1.GetHeight() * E1.GetHeight() / E3.GetHeight();
+                        double newminx = E3.GetMinX() - (E3.GetMinX() - E1.GetMinX()) * newwidth / E1.GetWidth();
+                        double newminy = E3.GetMinY() - (E3.GetMinY() - E1.GetMinY()) * newheight / E1.GetHeight();
+                        view.UpdateExtent(new GISExtent(newminx, newminx + newwidth, newminy, newminy + newheight));
+                    }
+                    UpdateMap();
+                    break;
+                case MOUSECOMMAND.Pan:
+                    if (e.X != MouseStartX || e.Y != MouseStartY)
+                    {
+                        GISExtent E1 = view.GetRealExtent();
+                        GISVertex M1 = view.ToMapVertex(new Point(MouseStartX, MouseStartY));
+                        GISVertex M2 = view.ToMapVertex(new Point(e.X, e.Y));
+                        double newwidth = E1.GetWidth();
+                        double newheight = E1.GetHeight();
+                        double newminx = E1.GetMinX() - (M2.x - M1.x);
+                        double newminy = E1.GetMinY() - (M2.y - M1.y);
+                        view.UpdateExtent(new GISExtent(newminx, newminx + newwidth, newminy, newminy + newheight));
+                        UpdateMap();
+                    }
+                    break;
+            }
+        }
+        private void toolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (sender.Equals(openDocumentToolStripMenuItem))
+            {
+                OpenFileDialog openFileDialog = new OpenFileDialog();
+                openFileDialog.Filter = "GIS Document(*." + GISConst.MYDOC + ")|*." + GISConst.MYDOC;
+                openFileDialog.RestoreDirectory = false;
+                openFileDialog.FilterIndex = 1;
+                openFileDialog.Multiselect = false;
+                if (openFileDialog.ShowDialog() != DialogResult.OK) return;
+                document.Read(openFileDialog.FileName);
+                if (document.IsEmpty() == false)
+                    UpdateMap();
+            }
+            else if (sender.Equals(layerControlToolStripMenuItem))
+            {
+                LayerDialogForm LayerControl = new LayerDialogForm(document, this);
+                LayerControl.ShowDialog();
+            }
+            else if (sender.Equals(fullExtentToolStripMenuItem))
+            {
+                if (document.IsEmpty() || view == null) return;
+                view.UpdateExtent(document.Extent);
+                UpdateMap();
+            }
+            else
+            {
+                if (document.IsEmpty() || view == null) return;
+                selectToolStripMenuItem.Checked = false;
+                zoomInToolStripMenuItem.Checked = false;
+                zoomOutToolStripMenuItem.Checked = false;
+                panToolStripMenuItem.Checked = false;
+                ((ToolStripMenuItem)sender).Checked = true;
+                if (sender.Equals(selectToolStripMenuItem))
+                    MouseCommand = MOUSECOMMAND.Select;
+                else if (sender.Equals(zoomInToolStripMenuItem))
+                    MouseCommand = MOUSECOMMAND.ZoomIn;
+                else if (sender.Equals(zoomOutToolStripMenuItem))
+                    MouseCommand = MOUSECOMMAND.ZoomOut;
+                else if (sender.Equals(panToolStripMenuItem))
+                    MouseCommand = MOUSECOMMAND.Pan;
+            }
+        }
+
+        private void GISPanel_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+                contextMenuStrip1.Show(this.PointToScreen(new Point(e.X, e.Y)));
+        }
+    }
+}
