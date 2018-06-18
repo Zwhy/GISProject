@@ -246,8 +246,6 @@ namespace MyGIS
     {
         public GISVertex bottomLeft;
         public GISVertex upRight;
-        double ZoomingFactor = 2;//缩放倍数
-        double MovingFactor = 0.25;//移动倍数
         private GISExtent extent;
 
         public GISExtent(GISVertex bottomLeft, GISVertex upRight)
@@ -273,47 +271,7 @@ namespace MyGIS
             upRight.CopyFrom(extent.upRight);
             bottomLeft.CopyFrom(extent.bottomLeft);
         }
-        //修改地图显示范围
-        public void ChangeExtent(GISMapActions action)
-        {
-            double newminx = bottomLeft.x, newminy = bottomLeft.y,
-                newmaxx = upRight.x, newmaxy = upRight.y;
-            switch(action)
-            {
-                case GISMapActions.zoomin:
-                    newminx = ((GetMinX() + GetMaxX()) - GetWidth() / ZoomingFactor) / 2;
-                    newminy = ((GetMinY() + GetMaxY()) - GetHeight() / ZoomingFactor) / 2;
-                    newmaxx = ((GetMinX() + GetMaxX()) + GetWidth() / ZoomingFactor) / 2;
-                    newmaxy = ((GetMinY() + GetMaxY()) + GetHeight() / ZoomingFactor) / 2;
-                    break;
-                case GISMapActions.zoomout:
-                    newminx = ((GetMinX() + GetMaxX()) - GetWidth() * ZoomingFactor) / 2;
-                    newminy = ((GetMinY() + GetMaxY()) - GetHeight() * ZoomingFactor) / 2;
-                    newmaxx = ((GetMinX() + GetMaxX()) + GetWidth() * ZoomingFactor) / 2;
-                    newmaxy = ((GetMinY() + GetMaxY()) + GetHeight() * ZoomingFactor) / 2;
-                    break;
-                case GISMapActions.moveup:
-                    newminy = GetMinY() - GetHeight() * MovingFactor;
-                    newmaxy = GetMaxY() - GetHeight() * MovingFactor;
-                    break;
-                case GISMapActions.movedown:
-                    newminy = GetMinY() + GetHeight() * MovingFactor;
-                    newmaxy = GetMaxY() + GetHeight() * MovingFactor;
-                    break;
-                case GISMapActions.moveleft:
-                    newminx = GetMinX() + GetWidth() * MovingFactor;
-                    newmaxx = GetMaxX() + GetWidth() * MovingFactor;
-                    break;
-                case GISMapActions.moveright:
-                    newminx = GetMinX() - GetWidth() * MovingFactor;
-                    newmaxx = GetMaxX() - GetWidth() * MovingFactor;
-                    break;
-            }
-            upRight.x = newmaxx;
-            upRight.y = newmaxy;
-            bottomLeft.x = newminx;
-            bottomLeft.y = newminy;
-        }
+
         //判断MinSelectExtent与当前空间对象是否相交,排除所有不相交的可能，剩下就是必然相交
         public bool InsertectOrNot(GISExtent extent)
         {
@@ -413,11 +371,6 @@ namespace MyGIS
             return new GISVertex(MapX, MapY);
         }
 
-        public void ChangeView(GISMapActions action)
-        {
-            CurrentMapExent.ChangeExtent(action);
-            Update(CurrentMapExent, MapWindowSize);
-        }
         public void UpdateExtent(GISExtent extent)
         {
             CurrentMapExent.CopyFrom(extent);
@@ -447,11 +400,6 @@ namespace MyGIS
             return new GISExtent(MapMinX, MapMinX + MapW, MapMinY, MapMinY + MapH);
         }
     }
-    public enum GISMapActions
-    {
-        zoomin, zoomout,
-        moveup, movedown, moveleft, moveright
-    };
     public class GISShapefile
     {
         [StructLayout(LayoutKind.Sequential, Pack = 4)]
@@ -1356,6 +1304,35 @@ namespace MyGIS
             }
             return null;
         }
+        public bool IsEmpty()
+        {
+            return (layers.Count == 0);
+        }
+        public void ClearSelection()
+        {
+            for (int i = 0; i < layers.Count; i++)
+                layers[i].ClearSelection();
+        }
+        public SelectResult Select(GISVertex v, GISView view)
+        {
+            SelectResult sr = SelectResult.TooFar;
+            for (int i = 0; i < layers.Count; i++)
+                if (layers[i].Selectable)
+                    if (layers[i].Select(v, view) == SelectResult.OK)
+                        sr = SelectResult.OK;
+            return sr;
+        }
+        public SelectResult Select(GISExtent extent)
+        {
+            SelectResult sr = SelectResult.TooFar;
+            for (int i = 0; i < layers.Count; i++)
+            {
+                if (layers[i].Selectable)
+                    if (layers[i].Select(extent) == SelectResult.OK)
+                        sr = SelectResult.OK;
+            }
+            return sr;
+        }
         //添加图层
         public GISLayer AddLayer(string path)
         {
@@ -1403,7 +1380,7 @@ namespace MyGIS
             UpdateExtent();
         }
         //绘图
-        public void draw(Graphics graphics, GISView view)
+        public void Draw(Graphics graphics, GISView view)
         {
             if (layers.Count == 0) return;
             GISExtent displayextent = view.GetRealExtent();

@@ -12,9 +12,8 @@ namespace GISProject
 {
     public partial class Form1 : Form
     {
-        GISLayer layer = null;
         GISView view = null;
-        Form2 AtributeWindow = null;
+        Dictionary<GISLayer, Form2> AllAttWnds = new Dictionary<GISLayer, Form2>();//相当于Java中的map。
         Bitmap backwindow;
         MOUSECOMMAND MouseCommand = MOUSECOMMAND.Unused;
         int MouseStartX = 0;
@@ -23,36 +22,21 @@ namespace GISProject
         int MouseMovingY = 0;
         bool MouseOnMap = false;//确保鼠标的按下、移动、松开这三个一系列动作是在同一个窗口下完成。
 
+        GISDocument document = new GISDocument();
+
         public Form1()
         {
             InitializeComponent();
-            view = new GISView(new GISExtent(new GISVertex(0, 0), new GISVertex(100, 100)),
-                    ClientRectangle);
         }
 
-        private void button1_Click(object sender, EventArgs e)
-        {
-            OpenFileDialog openFileDialog = new OpenFileDialog();
-            openFileDialog.Filter = "Shapefile文件|*.shp";
-            openFileDialog.RestoreDirectory = false;
-            openFileDialog.FilterIndex = 1;
-            openFileDialog.Multiselect = false;
-            if (openFileDialog.ShowDialog() != DialogResult.OK) return;
-            layer = GISShapefile.ReadShapefile(openFileDialog.FileName);
-            layer.DrawAttributeOrNot = false;
-            MessageBox.Show("read " + layer.FeatureCount() +  " objects.");
-            view.UpdateExtent(layer.Extent);
-            UpdateMap();
-        }
-
-        private void button2_Click(object sender, EventArgs e)
-        {
-            view.UpdateExtent(layer.Extent);
-            UpdateMap();
-        }
 
         public void UpdateMap()
         {
+            if(view == null)
+            {
+                if (document.IsEmpty()) return;
+                view = new GISView(new GISExtent(document.Extent), ClientRectangle);
+            }
             //如果地图窗口被最小化了，就不用绘制了
             if (ClientRectangle.Width * ClientRectangle.Height == 0) return;
             //确保当前view的地图窗口尺寸是正确的
@@ -63,7 +47,7 @@ namespace GISProject
             //在背景窗口上绘图
             Graphics g = Graphics.FromImage(backwindow);
             g.FillRectangle(new SolidBrush(Color.Black), ClientRectangle);
-            layer.Draw(g, view);
+            document.Draw(g, view);
             //把背景窗口绘制到前景窗口上
             Graphics graphics = CreateGraphics();
             graphics.DrawImage(backwindow, 0, 0);
@@ -72,78 +56,47 @@ namespace GISProject
 
         public void UpdateStatusBar()
         {
-            toolStripStatusLabel1.Text = layer.Selection.Count.ToString();
+            toolStripStatusLabel1.Text = document.layers.Count.ToString();
         }
 
-        private void MapButtonClick(object sender, EventArgs e)
+        public void OpenAttributeWindow(GISLayer layer )
         {
-            GISMapActions action = GISMapActions.zoomin;
-            if ((Button)sender == button3) action = GISMapActions.zoomin;
-            else if ((Button)sender == button4) action = GISMapActions.zoomout;
-            else if ((Button)sender == button5) action = GISMapActions.moveup;
-            else if ((Button)sender == button6) action = GISMapActions.movedown;
-            else if ((Button)sender == button7) action = GISMapActions.moveleft;
-            else if ((Button)sender == button8) action = GISMapActions.moveright;
-            view.ChangeView(action);
-            UpdateMap();
-        }
-
-        private void button9_Click(object sender, EventArgs e)
-        {
-            OpenAttributeWindow();
-        }
-
-        private void OpenAttributeWindow()
-        {
-            //如果图层为空就返回
-            if (layer == null) return;
-            //如果属性窗口还没有初始化，则初始化
-            if (AtributeWindow == null)
-                AtributeWindow = new Form2(layer, this);
-            //如果属性窗口资源被释放了，则初始化
-            if (AtributeWindow.IsDisposed)
-                AtributeWindow = new Form2(layer, this);
+            Form2 AttributeWindow = null;
+            //如果属性窗口已经存在了，就找到它并移除记录，稍后统一添加。
+            if (AllAttWnds.ContainsKey(layer))
+            {
+                AttributeWindow = AllAttWnds[layer];
+                AllAttWnds.Remove(layer);
+            }
+            //初始化属性窗口
+            if (AttributeWindow == null)
+                AttributeWindow = new Form2(layer, this);
+            if (AttributeWindow.IsDisposed)
+                AttributeWindow = new Form2(layer, this);
+            //添加属性窗口与图层的关联记录
+            AllAttWnds.Add(layer, AttributeWindow);
             //显示属性窗口
-            AtributeWindow.Show();
-            //如果属性窗口最小化了，令它正常显示
-            if (AtributeWindow.WindowState == FormWindowState.Minimized)
-                AtributeWindow.WindowState = FormWindowState.Normal;
-            //把属性窗口放到桌面最前端显示
-            AtributeWindow.BringToFront();
+            AttributeWindow.Show();
+            if (AttributeWindow.WindowState == FormWindowState.Minimized)
+                AttributeWindow.WindowState = FormWindowState.Normal;
+            AttributeWindow.BringToFront();
         }
 
-        private void button10_Click(object sender, EventArgs e)
-        {
-            GISMyFile.WriteFile(layer, @"D:\mygisfile.data");
-            MessageBox.Show("done.");
-        }
 
-        private void button11_Click(object sender, EventArgs e)
-        {
-            layer = GISMyFile.ReadFile(@"D:\mygisfile.data");
-            MessageBox.Show("read " + layer.FeatureCount() + " objects.");
-            view.UpdateExtent(layer.Extent);
-            UpdateMap();
-        }
-
-        private void button12_Click(object sender, EventArgs e)
-        {
-            if (layer == null) return;
-            layer.ClearSelection();
-            UpdateMap();
-            UpdateAttributeWindow();
-        }
 
         private void UpdateAttributeWindow()
         {
-            //如果图层为空，则返回
-            if (layer == null) return;
-            //如果属性窗口为空，则返回
-            if (AtributeWindow == null) return;
-            //如果属性窗口资源已经释放，则返回
-            if (AtributeWindow.IsDisposed) return;
-            //调用属性窗口的数据更新函数
-            AtributeWindow.UpdateData();
+            //如果文档为空，则返回
+            if (document.IsEmpty()) return;
+            foreach (Form2 AttributeWindow in AllAttWnds.Values)
+            {
+                //如果属性窗口已经关闭，则继续
+                if (AttributeWindow == null) continue;
+                //如果属性窗口资源已释放，也继续
+                if (AttributeWindow.IsDisposed) continue;
+                //更新数据
+                AttributeWindow.UpdateData();
+            }
         }
 
         private void Form1_Paint(object sender, PaintEventArgs e)
@@ -198,7 +151,7 @@ namespace GISProject
 
         private void Form1_MouseUp(object sender, MouseEventArgs e)
         {
-            if (layer == null) return;
+            if (document.IsEmpty()) return;
             if (MouseOnMap == false) return;
             MouseOnMap = false;
             switch (MouseCommand)
@@ -206,20 +159,20 @@ namespace GISProject
                 case MOUSECOMMAND.Select:
                     //如果ctrl键没有被按住，就清空选择集
                     if (Control.ModifierKeys != Keys.Control)
-                        layer.ClearSelection();
+                        document.ClearSelection();
                     //初始化选择结果
                     SelectResult sr = SelectResult.UnknownType;
                     if (e.X == MouseStartX && e.Y == MouseStartY)
                     {
                         //点选
                         GISVertex v = view.ToMapVertex(new Point(e.X, e.Y));
-                        sr = layer.Select(v, view);
+                        sr = document.Select(v, view);
                     }
                     else
                     {
                         //框选
                         GISExtent extent = view.RectToExtent(e.X, MouseStartX, e.Y, MouseStartY);
-                        sr = layer.Select(extent);
+                        sr = document.Select(extent);
                     }
                     //仅党选择集最可能发生改变时，才更新地图和属性窗口
                     if (sr == SelectResult.OK || Control.ModifierKeys != Keys.Control)
@@ -290,19 +243,36 @@ namespace GISProject
         }
         private void ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (layer == null) return;
-            if(sender.Equals(fullExtentToolStripMenuItem))
+            if (sender.Equals(openDocumentToolStripMenuItem))
             {
-                view.UpdateExtent(layer.Extent);
+                OpenFileDialog openFileDialog = new OpenFileDialog();
+                openFileDialog.Filter = "GIS Document(*." + GISConst.MYDOC + ")|*." + GISConst.MYDOC;
+                openFileDialog.RestoreDirectory = false;
+                openFileDialog.FilterIndex = 1;
+                openFileDialog.Multiselect = false;
+                if (openFileDialog.ShowDialog() != DialogResult.OK) return;
+                document.Read(openFileDialog.FileName);
+                if (document.IsEmpty() == false)
+                    UpdateMap();
+            }
+            else if(sender.Equals(layerControlToolStripMenuItem))
+            {
+                Form3 LayerControl = new Form3(document, this);
+                LayerControl.ShowDialog();
+            }
+            else if(sender.Equals(fullExtentToolStripMenuItem))
+            {
+                if (document.IsEmpty() || view == null) return;
+                view.UpdateExtent(document.Extent);
                 UpdateMap();
             }
             else
             {
+                if (document.IsEmpty() || view == null) return;
                 selectToolStripMenuItem.Checked = false;
                 zoomInToolStripMenuItem.Checked = false;
                 zoomOutToolStripMenuItem.Checked = false;
                 panToolStripMenuItem.Checked = false;
-                //layer.ClearSelection();
                 ((ToolStripMenuItem)sender).Checked = true;
                 if (sender.Equals(selectToolStripMenuItem))
                     MouseCommand = MOUSECOMMAND.Select;
@@ -312,7 +282,7 @@ namespace GISProject
                     MouseCommand = MOUSECOMMAND.ZoomOut;
                 else if (sender.Equals(panToolStripMenuItem))
                     MouseCommand = MOUSECOMMAND.Pan;
-            }
+            }    
         }
 
         private void Form1_MouseClick(object sender, MouseEventArgs e)

@@ -43,6 +43,9 @@
             this.btnMoveDownMap = new System.Windows.Forms.Button();
             this.btnExportLayer = new System.Windows.Forms.Button();
             this.btnSaveDocument = new System.Windows.Forms.Button();
+            this.btnAttributeTable = new System.Windows.Forms.Button();
+            this.btnApply = new System.Windows.Forms.Button();
+            this.btnClose = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // listBox1
@@ -120,7 +123,7 @@
             // 
             // btnModify
             // 
-            this.btnModify.Location = new System.Drawing.Point(726, 392);
+            this.btnModify.Location = new System.Drawing.Point(726, 382);
             this.btnModify.Name = "btnModify";
             this.btnModify.Size = new System.Drawing.Size(84, 23);
             this.btnModify.TabIndex = 8;
@@ -188,11 +191,44 @@
             this.btnSaveDocument.UseVisualStyleBackColor = true;
             this.btnSaveDocument.Click += new System.EventHandler(this.btnSaveDocument_Click);
             // 
+            // btnAttributeTable
+            // 
+            this.btnAttributeTable.Location = new System.Drawing.Point(735, 177);
+            this.btnAttributeTable.Name = "btnAttributeTable";
+            this.btnAttributeTable.Size = new System.Drawing.Size(75, 23);
+            this.btnAttributeTable.TabIndex = 15;
+            this.btnAttributeTable.Text = "打开属性表";
+            this.btnAttributeTable.UseVisualStyleBackColor = true;
+            this.btnAttributeTable.Click += new System.EventHandler(this.btnAttributeTable_Click);
+            // 
+            // btnApply
+            // 
+            this.btnApply.Location = new System.Drawing.Point(571, 445);
+            this.btnApply.Name = "btnApply";
+            this.btnApply.Size = new System.Drawing.Size(75, 23);
+            this.btnApply.TabIndex = 16;
+            this.btnApply.Text = "应用";
+            this.btnApply.UseVisualStyleBackColor = true;
+            this.btnApply.Click += new System.EventHandler(this.btnApply_Click);
+            // 
+            // btnClose
+            // 
+            this.btnClose.Location = new System.Drawing.Point(691, 445);
+            this.btnClose.Name = "btnClose";
+            this.btnClose.Size = new System.Drawing.Size(75, 23);
+            this.btnClose.TabIndex = 17;
+            this.btnClose.Text = "关闭";
+            this.btnClose.UseVisualStyleBackColor = true;
+            this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
+            // 
             // Form3
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(859, 509);
+            this.Controls.Add(this.btnClose);
+            this.Controls.Add(this.btnApply);
+            this.Controls.Add(this.btnAttributeTable);
             this.Controls.Add(this.btnSaveDocument);
             this.Controls.Add(this.btnExportLayer);
             this.Controls.Add(this.btnMoveDownMap);
@@ -233,5 +269,8 @@
         private System.Windows.Forms.Button btnMoveDownMap;
         private System.Windows.Forms.Button btnExportLayer;
         private System.Windows.Forms.Button btnSaveDocument;
+        private System.Windows.Forms.Button btnAttributeTable;
+        private System.Windows.Forms.Button btnApply;
+        private System.Windows.Forms.Button btnClose;
     }
 }

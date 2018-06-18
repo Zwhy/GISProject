@@ -156,5 +156,23 @@ namespace GISProject
                 MessageBox.Show("Done!");
             }
         }
+        //打开属性表
+        private void btnAttributeTable_Click(object sender, EventArgs e)
+        {
+            if (listBox1.SelectedItem == null) return;
+            GISLayer layer = Document.GetLayer(listBox1.SelectedItem.ToString());
+            MapWindow.OpenAttributeWindow(layer);
+        }
+        //关闭窗口
+        private void btnClose_Click(object sender, EventArgs e)
+        {
+            MapWindow.UpdateMap();
+            Close();
+        }
+        //应用按钮
+        private void btnApply_Click(object sender, EventArgs e)
+        {
+            MapWindow.UpdateMap();
+        }
     }
 }
