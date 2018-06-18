@@ -48,6 +48,20 @@ namespace MyGIS
             comboBox1.SelectedIndex = layer.LabelIndex;
             label1.Text = layer.Path;
             textBox1.Text = layer.Name;
+            btnInsideColor.BackColor = layer.Thematic.InsideColor;
+            textBox2.Text = layer.Thematic.Size.ToString();
+            btnOutsideColor.BackColor = layer.Thematic.OutsideColor;
+        }
+        //填充颜色和边界颜色修改
+        private void SettingColor_Click(object sender, EventArgs e)
+        {
+            ColorDialog colorDialog = new ColorDialog();
+            colorDialog.Color = ((Button)sender).BackColor;
+            if(colorDialog.ShowDialog() == DialogResult.OK)
+            {
+                ((Button)sender).BackColor = colorDialog.Color;
+                Clicked(sender, e);
+            }
         }
         private void Clicked(object sender, EventArgs e)
         {
@@ -57,6 +71,17 @@ namespace MyGIS
             layer.Visible = checkBox2.Checked;
             layer.DrawAttributeOrNot = checkBox3.Checked;
             layer.LabelIndex = comboBox1.SelectedIndex;
+            layer.Thematic.InsideColor = btnInsideColor.BackColor;
+            layer.Thematic.OutsideColor = btnOutsideColor.BackColor;
+            try
+            {
+                layer.Thematic.Size = (textBox2.Text == "") ? layer.Thematic.Size : Int32.Parse(textBox2.Text);
+            }
+            catch(System.FormatException)
+            {
+                MessageBox.Show("请输入有效数字");
+            }
+            
         }
         //修改按钮
         private void btnModify_Click(object sender, EventArgs e)

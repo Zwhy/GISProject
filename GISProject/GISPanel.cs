@@ -22,7 +22,7 @@ namespace MyGIS
         int MouseMovingY = 0;
         bool MouseOnMap = false;//确保鼠标的按下、移动、松开这三个一系列动作是在同一个窗口下完成。
 
-        GISDocument document = new GISDocument();
+        public GISDocument document = new GISDocument();
 
         public GISPanel()
         {

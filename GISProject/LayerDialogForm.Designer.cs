@@ -46,6 +46,14 @@
             this.btnAttributeTable = new System.Windows.Forms.Button();
             this.btnApply = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
+            this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.label3 = new System.Windows.Forms.Label();
+            this.label4 = new System.Windows.Forms.Label();
+            this.label5 = new System.Windows.Forms.Label();
+            this.btnInsideColor = new System.Windows.Forms.Button();
+            this.btnOutsideColor = new System.Windows.Forms.Button();
+            this.textBox2 = new System.Windows.Forms.TextBox();
+            this.groupBox1.SuspendLayout();
             this.SuspendLayout();
             // 
             // listBox1
@@ -221,11 +229,80 @@
             this.btnClose.UseVisualStyleBackColor = true;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
             // 
-            // Form3
+            // groupBox1
+            // 
+            this.groupBox1.Controls.Add(this.textBox2);
+            this.groupBox1.Controls.Add(this.btnOutsideColor);
+            this.groupBox1.Controls.Add(this.btnInsideColor);
+            this.groupBox1.Controls.Add(this.label5);
+            this.groupBox1.Controls.Add(this.label4);
+            this.groupBox1.Controls.Add(this.label3);
+            this.groupBox1.Location = new System.Drawing.Point(865, 12);
+            this.groupBox1.Name = "groupBox1";
+            this.groupBox1.Size = new System.Drawing.Size(388, 605);
+            this.groupBox1.TabIndex = 18;
+            this.groupBox1.TabStop = false;
+            this.groupBox1.Text = "显示设置";
+            // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(26, 47);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(55, 15);
+            this.label3.TabIndex = 0;
+            this.label3.Text = "label3";
+            // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(26, 97);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(55, 15);
+            this.label4.TabIndex = 1;
+            this.label4.Text = "label4";
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(26, 150);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(55, 15);
+            this.label5.TabIndex = 2;
+            this.label5.Text = "label5";
+            // 
+            // btnInsideColor
+            // 
+            this.btnInsideColor.Location = new System.Drawing.Point(133, 43);
+            this.btnInsideColor.Name = "btnInsideColor";
+            this.btnInsideColor.Size = new System.Drawing.Size(231, 23);
+            this.btnInsideColor.TabIndex = 3;
+            this.btnInsideColor.UseVisualStyleBackColor = true;
+            this.btnInsideColor.Click += new System.EventHandler(this.SettingColor_Click);
+            // 
+            // btnOutsideColor
+            // 
+            this.btnOutsideColor.Location = new System.Drawing.Point(133, 146);
+            this.btnOutsideColor.Name = "btnOutsideColor";
+            this.btnOutsideColor.Size = new System.Drawing.Size(231, 23);
+            this.btnOutsideColor.TabIndex = 4;
+            this.btnOutsideColor.UseVisualStyleBackColor = true;
+            this.btnOutsideColor.Click += new System.EventHandler(this.SettingColor_Click);
+            // 
+            // textBox2
+            // 
+            this.textBox2.Location = new System.Drawing.Point(133, 90);
+            this.textBox2.Name = "textBox2";
+            this.textBox2.Size = new System.Drawing.Size(231, 25);
+            this.textBox2.TabIndex = 5;
+            this.textBox2.TextChanged += new System.EventHandler(this.Clicked);
+            // 
+            // LayerDialogForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(859, 509);
+            this.ClientSize = new System.Drawing.Size(1265, 654);
+            this.Controls.Add(this.groupBox1);
             this.Controls.Add(this.btnClose);
             this.Controls.Add(this.btnApply);
             this.Controls.Add(this.btnAttributeTable);
@@ -244,9 +321,11 @@
             this.Controls.Add(this.checkBox2);
             this.Controls.Add(this.checkBox1);
             this.Controls.Add(this.listBox1);
-            this.Name = "Form3";
+            this.Name = "LayerDialogForm";
             this.Text = "Form3";
             this.Shown += new System.EventHandler(this.Form3_Shown);
+            this.groupBox1.ResumeLayout(false);
+            this.groupBox1.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -272,5 +351,12 @@
         private System.Windows.Forms.Button btnAttributeTable;
         private System.Windows.Forms.Button btnApply;
         private System.Windows.Forms.Button btnClose;
+        private System.Windows.Forms.GroupBox groupBox1;
+        private System.Windows.Forms.TextBox textBox2;
+        private System.Windows.Forms.Button btnOutsideColor;
+        private System.Windows.Forms.Button btnInsideColor;
+        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.Label label3;
     }
 }

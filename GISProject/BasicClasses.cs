@@ -67,11 +67,13 @@ namespace MyGIS
             centroId = oneVertex;
             extent = new GISExtent(oneVertex, oneVertex);
         }
-        public override void Draw(Graphics graphics, GISView view, bool Selected)
+        public override void Draw(Graphics graphics, GISView view, bool Selected, GISThematic thematic)
         {
             Point screenPoint = view.ToScreenPoint(centroId);
-            graphics.FillEllipse(new SolidBrush(Selected? GISConst.SelectedPointColor:GISConst.PointColor),
-                new Rectangle(screenPoint.X - GISConst.PointSize, screenPoint.Y - GISConst.PointSize, GISConst.PointSize*2, GISConst.PointSize*2));
+            graphics.FillEllipse(new SolidBrush(Selected ? GISConst.SelectedPointColor : thematic.InsideColor),
+                new Rectangle(screenPoint.X - thematic.Size, screenPoint.Y - thematic.Size, thematic.Size * 2, thematic.Size * 2));
+            graphics.DrawEllipse(new Pen(new SolidBrush(thematic.OutsideColor)),
+                new Rectangle(screenPoint.X - thematic.Size, screenPoint.Y - thematic.Size, thematic.Size * 2, thematic.Size * 2));
         }
         public double Distance(GISVertex anotherVertex)
         {
@@ -104,10 +106,10 @@ namespace MyGIS
             return distance;
         }
 
-        public override void Draw(Graphics graphics, GISView view, bool selected)
+        public override void Draw(Graphics graphics, GISView view, bool selected, GISThematic thematic)
         {
             Point[] points = GISTools.GetScreenPoints(Vertexs, view);
-            graphics.DrawLines(new Pen(selected? GISConst.SelectedLineColor:GISConst.LineColor, GISConst.LineWidth), points);
+            graphics.DrawLines(new Pen(selected? GISConst.SelectedLineColor:thematic.InsideColor, thematic.Size), points);
         }
         //线的起始点
         public GISVertex FromNode()
@@ -136,11 +138,11 @@ namespace MyGIS
             Area = GISTools.CalculateArea(vertexs);
         }
 
-        public override void Draw(Graphics graphics, GISView view, bool selected)
+        public override void Draw(Graphics graphics, GISView view, bool selected, GISThematic thematic)
         {
             Point[] points = GISTools.GetScreenPoints(Vertexs, view);
-            graphics.FillPolygon(new SolidBrush(selected? GISConst.SelectedPolygonFillColor: GISConst.PolygonFillColor), points);
-            graphics.DrawPolygon(new Pen(GISConst.PolygonBoundaryColor, GISConst.PolygonBoundaryWidth), points);
+            graphics.FillPolygon(new SolidBrush(selected? GISConst.SelectedPolygonFillColor: thematic.InsideColor), points);
+            graphics.DrawPolygon(new Pen(thematic.OutsideColor, thematic.Size), points);
         }
         //射线法判断点面位置
         public bool Include(GISVertex vertex)
@@ -196,9 +198,9 @@ namespace MyGIS
             this.spatialPart = spatialPart;
             this.attributePart = attributePart;
         }
-        public void Draw(Graphics graphics, GISView view, bool DrawAttributeOrNot, int index)
+        public void Draw(Graphics graphics, GISView view, bool DrawAttributeOrNot, int index, GISThematic thematic)
         {
-            spatialPart.Draw(graphics, view, Selected);
+            spatialPart.Draw(graphics, view, Selected, thematic);
             if (DrawAttributeOrNot)
                 attributePart.Draw(graphics, view, spatialPart.centroId, index);
         }
@@ -237,7 +239,7 @@ namespace MyGIS
     {
         public GISVertex centroId;
         public GISExtent extent;
-        public abstract void Draw(Graphics graphics, GISView view, bool selected);
+        public abstract void Draw(Graphics graphics, GISView view, bool selected, GISThematic thematic);
     }
     /*
      * GISExtent
@@ -611,17 +613,17 @@ namespace MyGIS
         public bool Visible = true;
         public string Path = "";
 
-        public GISLayer(string name, GISExtent extent, SHAPETYPE shapeType, List<GISField> fields) : this(name, extent, shapeType)
-        {
-            Fields = fields;
-        }
-        public GISLayer(string name, GISExtent extent, SHAPETYPE shapeType)
+        public GISThematic Thematic;
+
+        public GISLayer(string name, GISExtent extent, SHAPETYPE shapeType, List<GISField> fields = null)
         {
             Name = name;
             Extent = extent;
             ShapeType = shapeType;
-            Fields = new List<GISField>();
+            Fields = (fields == null) ? new List<GISField>() : fields;
+            Thematic = new GISThematic(ShapeType);
         }
+
         //对象选择操作
         public SelectResult Select(GISVertex vertex, GISView view)
         {
@@ -678,13 +680,6 @@ namespace MyGIS
             Selection.Clear();
         }
 
-        public void Draw(Graphics graphics, GISView view)
-        {
-            for(int i = 0; i < Features.Count; i++)
-            {
-                Features[i].Draw(graphics, view, DrawAttributeOrNot, LabelIndex);
-            }
-        }
         public void AddFeature(GISFeature feature)
         {
             if (Features.Count == 0) feature.ID = 0;
@@ -720,12 +715,13 @@ namespace MyGIS
             return null;
         }
 
-        internal void Draw(Graphics graphics, GISView view, GISExtent displayextent)
+        internal void Draw(Graphics graphics, GISView view, GISExtent extent = null)
         {
+            extent = (extent == null) ? view.GetRealExtent() : extent;
             for (int i = 0; i < Features.Count; i++)
             {
                 if (Extent.InsertectOrNot(Features[i].spatialPart.extent))
-                    Features[i].Draw(graphics, view, DrawAttributeOrNot, LabelIndex);
+                    Features[i].Draw(graphics, view, DrawAttributeOrNot, LabelIndex, Thematic);
             }
         }
     }
@@ -877,6 +873,12 @@ namespace MyGIS
             string typestring = Enum.GetName(typeof(ALLTYPES), index);
             typestring = typestring.Replace("_", ".");
             return Type.GetType(typestring);
+        }
+        //给点线面赋随机颜色
+        public static Random random = new Random();
+        public static Color GetRandomColor()
+        {
+            return Color.FromArgb(random.Next(256), random.Next(256), random.Next(256));
         }
     }
     //属性数据字段类
@@ -1266,15 +1268,11 @@ namespace MyGIS
         public static double ZoomOutFactor = 0.8;
 
         public static double MinScreenDistance = 5;
-        //点的颜色和半径
-        public static Color PointColor = Color.Pink;
+        //点的半径
         public static int PointSize = 3;
-        //线的颜色和宽度
-        public static Color LineColor = Color.CadetBlue;
+        //线的宽度
         public static int LineWidth = 2;
-        //面的边框颜色、填充颜色及边框宽度
-        public static Color PolygonBoundaryColor = Color.White;
-        public static Color PolygonFillColor = Color.Gray;
+        //面的边框宽度
         public static int PolygonBoundaryWidth = 2;
         //被选中点的颜色
         public static Color SelectedPointColor = Color.Red;
@@ -1434,6 +1432,34 @@ namespace MyGIS
             }
             br.Close();
             fs.Close();
+        }
+    }
+    //记录每个图层特定的显示方式
+    public class GISThematic
+    {
+        public Color OutsideColor;
+        public int Size;
+        public Color InsideColor;
+
+        public GISThematic(Color outsideColor, int size, Color insideColor)
+        {
+            Update(outsideColor, size, insideColor);//调用update给成员赋值，且当一个实例存在时，也能调用update来更新
+        }
+        public void Update(Color outsideColor, int size, Color insideColor)
+        {
+            OutsideColor = outsideColor;
+            Size = size;
+            InsideColor = insideColor;
+        }
+
+        public GISThematic(SHAPETYPE shapetype)
+        {
+            if (shapetype == SHAPETYPE.point)
+                Update(GISTools.GetRandomColor(), GISConst.PointSize, GISTools.GetRandomColor());
+            else if (shapetype == SHAPETYPE.line)
+                Update(GISTools.GetRandomColor(), GISConst.LineWidth, GISTools.GetRandomColor());
+            else if (shapetype == SHAPETYPE.polygon)
+                Update(GISTools.GetRandomColor(), GISConst.PolygonBoundaryWidth, GISTools.GetRandomColor());
         }
     }
 }
